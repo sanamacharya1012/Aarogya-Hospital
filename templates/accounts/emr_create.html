@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card p-4 shadow-sm">
+    <h3 class="fw-bold mb-2">Create EMR</h3>
+    <p class="text-muted mb-3">
+        Patient: {{ patient.full_name }} ({{ patient.patient_id}})
+    </p>
+    
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="mb-3">
+            <label class="form-label">Diagnosis</label>
+            {{ form.diagnosis }}
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Symptoms</label>
+            {{ form.symptoms }}
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Prescription</label>
+            {{ form.prescription }}
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Notes</label>
+            {{ form.notes }}
+        </div>
+
+        <button class="btn btn-success">Save EMR</button>
+        <a class="btn btn-outline-secondary" href="{% url 'patient_detail' patient.patient_id %}">
+            Cancel
+        </a>
+    </form>
+</div>
+
+<script>
+    document.querrySelectorAll("textarea")
+    .forEach(el => el.classList.add("form-control"));
+</script>
+
+{% endblock %}

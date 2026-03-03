@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="fw-bold mb-0">User List</h3>
+    <a class="btn btn-success" href="{% url 'create_user' %}">+ Create User</a>
+</div>
+
+<form method="get" class="card p-3 mb-3">
+    <div class="row g-2 align-item-end">
+        <div class="col-md-4">
+            <label class="form-label">Search</label>
+            <input class="form-control" name="q" value="{{ q }}" placeholder="Name / username / email / phone">
+        </div>   
+        
+        <div class="col-md-2">
+            <label class="form-label">Role</label>
+            <select class="form-select" name="role" id="roleFilter">
+                <option value="">All</option>
+                {% for val, label in role_choices %}
+                    <option value="{{ val }}" {% if role == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-md-2">
+            <label class="form-label">Department</label>
+            <select class="form-select" name="department" id="departmentFilter">
+                <option value="">All</option>
+                {% for d in departments %}
+                    <option value="{{ d.id }}" {% if department_id == d.id|stringformat:"s" %}selected{% endif %}>
+                        {{ d.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+        </div>
+
+        <div class="col-md-2">
+            <label class="form-label">Specialization</label>
+            <select class="form-select" name="specialization" id="specializationFilter">
+                <option value="">All</option>
+                {% for s in specializations %}
+                    <option value="{{ s.id }}" {% if specialization_id == s.id|stringformat:"s" %}selected{% endif %}>
+                        {{ s.name }} ({{ s.department.name }})
+                    </option>
+                    {% endfor %}
+            </select>
+            <div class="form-text">Mainly for doctors</div>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Active</label>
+            <select class="form-select" name="active">
+                <option value=:"">All</option>
+                <option value="1" {% if active == "1" %}selected{% endif %}>Active</option>
+                <option value="0" {% if active == "0" %}selected{% endif %}>Inactive</option>
+            </select>
+        </div>
+
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-dark">Filter</button>
+        </div>
+
+        <div class="col-md-2 d-grid">
+            <a class="btn btn-outline-secondary" href="{% url 'user_list' %}">Reset</a>
+        </div>
+    </div>
+</form>
+
+<div class="card-shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover mb-o align-middle">
+            <thead class="table=light">
+                <tr>
+                    <th>Name</th>
+                    <th>Username</th>
+                    <th>Role</th>
+                    <th>Department</th>
+                    <th>Specialization<th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in page_obj %}
+                    <tr>
+                        <td class="fw-semibold">
+                            <a href="{% url 'user_detail' u.id %}" class="text-decoration-none">
+                                {{ u.full_name|default:"-" }}
+                            </a>
+                        </td>
+                        <td>{{ u.username }}</td>
+                        <td><span class="badge text-bg-secondary">{{ u.role }}</span></td>
+                        <td>{{ u.department.name|default:"-" }}</td>
+                        <td>{{ u.specialization.name|default:"-" }}</td>
+                        <td>
+                            {% if u.is_active %}
+                                <span class="badge text-bg-success">Active</span>
+                            {% else %}
+                                <span class="bagde text-bg-danger">Inactive</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-4">No users found</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="p-3 border-top">
+        <nav>
+            <ul class="pagination mb-0">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?q={{ q }}&role={{ role }}&department={{ department_id }}&specialization={{ specialization_id}}&active={{ active }}&page={{ page_obj.previous_page_number }}">
+                            Prev
+                        </a>
+                    </li>
+                {% else %}
+                 <li class="page-item disabled"><span class="page-link">Prev</span></li>
+                {% endif %}
+
+                <li class="page-item disabled">
+                    <span class="page-link">
+                        Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                    </span>
+                </li>
+
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?q={{ q }}&role={{ role }}&department={{ department_id}}&specialization={{ specialization_id }}&active={{ active }}&page={{ page_obj.next_page_number }} ">
+                            Next
+                        </a>
+                    </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">Next</span></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    // Optional ux: disable specialization unless role=DOCTOR
+
+    const roleFilter = document.getElementById("roleFilter");
+    const specFilter = document.getElementById("specializationFilter");
+
+    function toggleSpec(){
+        if (!roleFilter || !specFilter) return;
+        const isDoctor = roleFilter.value === "DOCTOR";
+        specFilter.disabled = !isDoctor && roleFilter.value !== "";
+        // if role is empty (All), allow specialization filter too
+        if (roleFilter.value === "") specFilter.disabled = false;
+    }
+    roleFilter.addEventListener("change", toggleSpec);
+    toggleSpec();
+</script>
+{% endblock %}

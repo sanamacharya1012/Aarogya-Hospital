@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %} 
+<div class="card p-4 shadow-sm">
+    <h4 class="fw-bold mb-2">{{ title }}</h4>
+
+    <div class="text-muted mb-3">
+        Please confirm the following details before scheduling the appointment:
+        <div><strong>Date:</strong> {{ appt.appointment_date }}</div>
+        <div><strong>Time:</strong> {{ appt.appointment_time }}</div>
+        <div><strong>Patient:</strong> {{ appt.patient.full_name }}</div>
+        <div><strong>Doctor:</strong> {{ appt.doctor.full_name }}</div>
+        <div><strong>Status:</strong> {{ appt.status }}</div>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <button class="btn {{btn_class}}">{{ btn_text }}</button>
+        <a class="btn btn-outline-secondary" href="{% url 'appointment_list' %}" >Back</a>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-3">
+    <h3 class="fw-bold mb-0">Patients</h3>
+    <a class="btn btn-primary" href="{% url 'patient_create' %}">+ New Patient</a>
+</div>
+<form class="card p-3 mb-3" method="get">
+  <div class="row g-2">
+    <div class="col-md-8">
+      <input class="form-control" name="q" value="{{ q }}" placeholder="Search by Patient ID / Name / Phone" />
+    </div>
+    <div class="col-md-3">
+      <select class="form-select" name="status">
+        <option value="" {% if not status_filter %}selected{% endif %}>All</option>
+        <option value="admitted" {% if status_filter == "admitted" %}selected{% endif %}>Admitted Only</option>
+      </select>
+    </div>
+    <div class="col-md-1 d-grid">
+      <button class="btn btn-dark">Go</button>
+    </div>
+  </div>
+</form>
+
+<div class="card shadow-sm border-0" style="border-radius:16px;">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Patient ID</th>
+                    <th>Name</th>
+                    <th>Phone</th>
+                    <th>Address</th>
+                    <th>Age</th>
+                    <th>Created</th>     <!-- ✅ added -->
+                    <th class="text-end">Actions</th> <!-- ✅ added -->
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for p in patients %}
+                    <tr>
+                        <td class="fw-semibold">{{ p.patient_id }}</td>
+                        <td>{{ p.full_name }}</td>
+                        <td>{{ p.phone_number }}</td>
+                        <td>{{ p.address }}</td>
+                        <td>{{ p.age }}</td>
+                        <td>{{ p.created_at|date:"M d, Y" }}</td>
+
+                        <td class="d-flex gap-2 flex-wrap">
+                            <a class="btn btn-sm btn-outline-primary"
+                               href="{% url 'patient_detail' p.patient_id %}">
+                               View
+                            </a>
+                            <a class="btn btn-sm btn-outline-secondary"
+                               href="{% url 'patient_admit' p.patient_id %}">
+                               Admit
+                            </a>
+
+                        </td>
+                    </tr>
+
+                {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-4">No patients found.</td> <!-- ✅ fixed -->
+                    </tr>
+                {% endfor %}
+            </tbody>
+
+        </table>
+    </div>
+</div>
+
+{% endblock %}

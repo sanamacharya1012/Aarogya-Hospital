@@ -1,0 +1,54 @@
+<aside class="hms-sidebar">
+  <div class="hms-sidebar-inner">
+
+    <div class="hms-menu-title">Menu</div>
+
+    <a class="hms-link {% if request.path == '/' %}active{% endif %}" href="{% url 'dashboard' %}">
+      📊 <span>Dashboard</span>
+    </a>
+
+    <a class="hms-link {% if '/patients/' in request.path %}active{% endif %}" href="{% url 'patient_list' %}">
+      🧑‍⚕️ <span>Patients</span>
+    </a>
+
+    {% if user.role == "ADMIN" %}
+      <div class="hms-menu-title mt-3">Admin</div>
+
+      <a class="hms-link {% if '/users/create/' in request.path %}active{% endif %}" href="{% url 'create_user' %}">
+        ➕👤 <span>Create User</span>
+      </a>
+      <a class="hms-link {% if '/users/' in request.path %}active{% endif %}"
+          href="{% url 'user_list' %}">
+          👥 <span>User List</span>
+      </a>
+      
+    {% endif %}
+
+      <div class="hms-menu-title mt-3">Appointments</div>
+      <a class="hms-link {% if '/appointments/' in request.path %}active{% endif %}" href="{% url 'appointment_list' %}">
+        📅 <span>Appointments</span>
+      </a>
+    {% if user.role == "ADMIN" or user.role == "RECEPTION" %}
+      <a class="hms-link {% if '/appointments/create/' in request.path %}active{% endif %}" href="{% url 'appointment_create' %}">
+        ➕📅 <span>Create Appointment</span>
+      </a>
+    {% endif %}
+
+    <div class="hms-menu-title mt-3">EMR</div>
+    <a class="hms-link{% if  '/emr/search' in request.path %}active{% endif %}"
+          href="{% url 'emr_search' %}">
+          🩺📄<span>EMR Search</span>
+    </a>
+    <div class="hms-menu-title mt-3">Lab</div>
+    <a class="hms-link{% if '/lab/orders/' in request.path %}active{% endif %}"
+          href="{% url 'lab_order_list' %}">
+          🧪 Lab Orders
+  </a>
+
+    <a class="hms-link" href="{% url 'logout' %}">
+      🚪 <span>Logout</span>
+    </a>
+    
+
+  </div>
+</aside>

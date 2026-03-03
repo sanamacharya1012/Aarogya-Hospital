@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card p-4 shadow-sm">
+    <h3 class="mb-1 fw-bold">Admit Patient</h3>
+    <p class="text-muted mb-3"> {{ patient.patient_id }} • {{ patient.full_name }} </p>
+
+    <form method="post" id="admissionform">
+        {% csrf_token %}
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Ward</label>
+                {{ form.ward}}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Bed (Available only)</label>
+                {{ form.bed}}
+                <div class="form-text" id="bedHelp">Select a ward first.</div>
+            </div>
+            <div class="col-12">
+                <label class="form-label">Reason</label>
+                {{ form.reason }}
+            </div>
+            <div class="col-12">
+                <label class="form-label">Notes</label>
+                {{ form.notes }}
+            </div>
+            <div class="d-flex gap-2 mt-4">
+              <button class="btn btn-primary">Admit</button>
+                <a class="btn btn-outline-secondary" href="{% url 'patient_detail' patient.patient_id %}">Cancel</a>
+        </div>
+    </form>
+</div>
+<script>
+  document.querySelectorAll("input, select, textarea")
+    .forEach(el => el.classList.add("form-control"));
+
+  const wardSelect = document.getElementById("id_ward");
+  const bedSelect = document.getElementById("id_bed");
+  const bedHelp = document.getElementById("bedHelp");
+
+  function setBedOptions(beds) {
+    bedSelect.innerHTML = "";
+
+    const defaultOpt = document.createElement("option");
+    defaultOpt.value = "";
+    defaultOpt.textContent = beds.length ? "Select a bed" : "No available beds";
+    bedSelect.appendChild(defaultOpt); // ✅ IMPORTANT
+
+    for (const b of beds) {
+      const opt = document.createElement("option");
+      opt.value = b.id;
+      opt.textContent = `Bed ${b.bed_number}`;
+      bedSelect.appendChild(opt);
+    }
+
+    bedSelect.disabled = beds.length === 0;
+    bedHelp.textContent = beds.length
+      ? `Available beds: ${beds.length}`
+      : "No beds available in this ward.";
+  }
+
+  async function loadBeds() {
+    const wardId = wardSelect.value;
+
+    setBedOptions([]);
+    bedSelect.disabled = true;
+
+    if (!wardId) {
+      bedHelp.textContent = "Select ward first.";
+      return;
+    }
+
+    bedHelp.textContent = "Loading beds...";
+    try {
+      const res = await fetch(`/api/beds/available/?ward_id=${wardId}`); // ✅ FIXED
+      const data = await res.json();
+      setBedOptions(data.beds || []);
+    } catch (err) {
+      console.error(err);
+      bedHelp.textContent = "Failed to load beds. Try again.";
+      bedSelect.innerHTML = '<option value="">Error loading beds</option>';
+    }
+  }
+
+  wardSelect.addEventListener("change", loadBeds);
+
+  if (wardSelect.value) loadBeds();
+  else bedSelect.disabled = true;
+</script>
+{% endblock %}

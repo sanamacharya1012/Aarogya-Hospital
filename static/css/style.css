@@ -1,0 +1,217 @@
+/* ===== Base ===== */
+html, body{
+  height: 100%;
+}
+.hms-body{
+  background: #f6f8fc;
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+
+  padding-top: 60px;   /* ✅ THIS fixes content under topbar */
+}
+
+/* ===== Topbar ===== */
+.hms-topbar{
+  height: 60px;
+  background: linear-gradient(90deg, #111827, #1f2937);
+  color: #fff;
+  display: flex;
+  align-items: center;
+
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999; /* ✅ higher */
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+}
+
+.hms-brand{
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  font-size: 18px;
+}
+
+.hms-subtitle{
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+/* ===== Layout ===== */
+.hms-layout{
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ===== Sidebar ===== */
+.hms-sidebar{
+  width: 250px;
+  background: #ffffff;
+  border-right: 1px solid #e8eef7;
+
+  position: sticky;
+  top: 0;                 /* ✅ below topbar */
+  height: calc(100vh - 60px);
+}
+
+.hms-sidebar-inner{
+  padding: 18px 14px;
+}
+
+.hms-menu-title{
+  font-size: 12px;
+  text-transform: uppercase;
+  color: #6b7280;
+  font-weight: 700;
+  margin: 10px 8px;
+  letter-spacing: 0.6px;
+}
+
+.hms-link{
+  display: flex;              /* changed */
+  align-items: center;        /* new */
+  gap: 10px;                  /* new */
+  padding: 10px 12px;
+  margin: 6px 6px;
+  border-radius: 12px;
+  color: #111827;
+  text-decoration: none;
+  font-weight: 600;
+  transition: 0.2s ease;
+}
+
+.hms-link,
+.hms-link:visited,
+.hms-link:hover,
+.hms-link:active,
+.hms-link:focus,
+.hms-link:focus-visible,
+.hms-link span,
+.hms-link span:hover,
+.hms-link span:visited,
+.hms-link span:active,
+.hms-link span:focus,
+.hms-link span:focus-visible{
+  text-decoration: none !important;
+}
+
+.hms-link:focus,
+.hms-link:focus-visible{
+  outline: none;
+  box-shadow: none;
+}
+
+.hms-link svg{
+  flex-shrink:0;
+}
+
+.hms-link:hover{
+  background: #eef6ff;
+  color: #0b5ed7;
+}
+
+
+
+.hms-link.active{
+  background: #0b5ed7;
+  color: #fff;
+}
+
+/* ===== Main ===== */
+.hms-main{
+  flex: 1;
+  height: calc(100vh - 60px);
+  overflow: auto;
+}
+
+/* Card improvement */
+.card{
+  border: 0;
+  border-radius: 16px;
+  box-shadow: 0 10px 25px rgba(16, 24, 40, 0.07);
+}
+
+.btn{
+  border-radius: 12px;
+}
+
+.form-control{
+  border-radius: 12px;
+}
+
+/* Responsive sidebar collapse */
+@media (max-width: 992px){
+  .hms-sidebar{
+    display: none;
+  }
+}
+
+.specialization-card {
+    transition: all 0.3s ease;
+    cursor: pointer;
+    border: none;
+    border-radius: 12px;
+}
+
+.specialization-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+}
+
+/* Default styling */
+.specialization-card .kpi-value {
+    font-weight: bold;
+}
+
+/* Different colors per specialization */
+.spec-cardiology { background: #ffe5e5; }
+.spec-neurology { background: #e6f0ff; }
+.spec-orthopedics { background: #fff4e6; }
+.spec-pediatrics { background: #e6fff5; }
+
+.section-title{
+  font-size:13px;
+  font-weight:900;
+  letter-spacing:.8px;
+  text-transform:uppercase;
+  color:#64748b;
+  margin:18px 0 10px;
+}
+
+.kpi-card{
+  border:0;
+  border-radius:16px;
+  box-shadow:0 10px 25px rgba(16,24,40,.07);
+  transition:.2s ease;
+}
+.kpi-card:hover{
+  transform:translateY(-2px);
+  box-shadow:0 18px 40px rgba(16,24,40,.1);
+}
+.kpi-body{
+  padding:18px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+.kpi-label{
+  font-size:12px;
+  text-transform:uppercase;
+  font-weight:800;
+  letter-spacing:.6px;
+  color:#64748b;
+}
+.kpi-value{
+  font-size:32px;
+  font-weight:900;
+}
+.kpi-icon{
+  width:42px;
+  height:42px;
+  border-radius:14px;
+  background:#f1f5f9;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:20px;
+}

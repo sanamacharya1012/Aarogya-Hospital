@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="row justify-content-center">
+    <div class="col-lg-8 col-xl-7">
+
+        <div class="card p-4 shadow-sm border-0" style="border-radius:16px;">
+
+            <h3 class="fw-bold mb-4 text-center">
+                📅 Create Appointment
+            </h3>
+
+            <form method="post">
+                {% csrf_token %}
+
+                <div class="row">
+
+                    {% for field in form %}
+                    <div class="col-md-6 mb-3">
+
+                        <label class="form-label fw-semibold">
+                            {{ field.label }}
+                        </label>
+
+                        {{ field }}
+
+                        {% if field.help_text %}
+                            <div class="form-text">{{ field.help_text }}</div>
+                        {% endif %}
+
+                        {% for error in field.errors %}
+                            <div class="text-danger small">{{ error }}</div>
+                        {% endfor %}
+
+                    </div>
+                    {% endfor %}
+
+                </div>
+
+                <div class="text-center mt-3">
+
+                    <button class="btn btn-success px-4 py-2"
+                            style="border-radius:12px;font-weight:600;">
+                        Save Appointment
+                    </button>
+
+                    <a class="btn btn-outline-secondary px-4 py-2 ms-2"
+                       style="border-radius:12px;font-weight:600;"
+                       href="{% url 'appointment_list' %}">
+                       Cancel
+                    </a>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+</div>
+
+<script>
+/* Apply Bootstrap styling automatically */
+document.querySelectorAll("input, select, textarea").forEach(el => {
+
+    if(el.type === "checkbox" || el.type === "radio"){
+        el.classList.add("form-check-input");
+    }
+    else if(el.tagName === "SELECT"){
+        el.classList.add("form-select");
+    }
+    else{
+        el.classList.add("form-control");
+    }
+
+});
+</script>
+
+{% endblock %}

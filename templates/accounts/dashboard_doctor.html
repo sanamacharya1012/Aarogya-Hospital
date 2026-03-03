@@ -1,0 +1,441 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+  .dash-header{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:14px;
+  }
+  .dash-title{ margin:0; font-weight:900; letter-spacing:.2px; }
+  .dash-sub{ margin:4px 0 0; color:#64748b; font-size:13px; }
+
+  .section-title{
+    font-size:13px;
+    font-weight:900;
+    letter-spacing:.8px;
+    text-transform:uppercase;
+    color:#64748b;
+    margin:18px 0 10px;
+  }
+
+  .kpi-card{
+    border:0;
+    border-radius:16px;
+    box-shadow:0 10px 25px rgba(16,24,40,.07);
+    transition:.2s ease;
+    background:#fff;
+    height:100%;
+  }
+  .kpi-card:hover{
+    transform:translateY(-2px);
+    box-shadow:0 18px 40px rgba(16,24,40,.10);
+  }
+  .kpi-body{
+    padding:18px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+  }
+  .kpi-label{
+    font-size:12px;
+    text-transform:uppercase;
+    font-weight:800;
+    letter-spacing:.6px;
+    color:#64748b;
+    margin-bottom:6px;
+  }
+  .kpi-value{
+    font-size:38px;
+    font-weight:900;
+    line-height:1;
+    color:#0f172a;
+  }
+  .kpi-icon{
+    width:44px;height:44px;
+    border-radius:14px;
+    background:#f1f5f9;
+    border:1px solid #e2e8f0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:20px;
+    flex-shrink:0;
+  }
+
+  .panel-card{
+    border:0;
+    border-radius:16px;
+    box-shadow:0 10px 25px rgba(16,24,40,.07);
+    background:#fff;
+    overflow:hidden;
+  }
+  .panel-head{
+    padding:14px 16px;
+    border-bottom:1px solid #eef2f7;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+  }
+  .panel-head h5{
+    margin:0;
+    font-weight:900;
+    font-size:14px;
+    letter-spacing:.2px;
+  }
+  .panel-head .small{
+    color:#64748b;
+    font-size:12px;
+  }
+
+  .badge-soft{
+    background:#eef2ff;
+    color:#1d4ed8;
+    border:1px solid #dbeafe;
+    font-weight:800;
+    border-radius:999px;
+    padding:6px 10px;
+    font-size:12px;
+    white-space:nowrap;
+  }
+
+  .progress-wrap{
+    padding:12px 16px 16px;
+  }
+  .progress-meta{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:8px;
+    font-size:12px;
+    color:#64748b;
+    font-weight:700;
+  }
+  .progress{
+    height:10px;
+    border-radius:999px;
+  }
+
+  .table thead th{
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.7px;
+    color:#64748b;
+    font-weight:900;
+  }
+  .table td{
+    vertical-align:middle;
+  }
+
+  .pill{
+    font-size:12px;
+    font-weight:800;
+    padding:6px 10px;
+    border-radius:999px;
+    border:1px solid transparent;
+    white-space:nowrap;
+  }
+  .pill-scheduled{ background:#ecfdf5; color:#198754; border-color:#d1fae5; }
+  .pill-completed{ background:#eef2ff; color:#1d4ed8; border-color:#dbeafe; }
+  .pill-cancelled{ background:#fff1f2; color:#dc3545; border-color:#ffe4e6; }
+
+  .next-card{
+    background: linear-gradient(135deg, rgba(13,110,253,.12), rgba(25,135,84,.10));
+    border:1px solid rgba(13,110,253,.15);
+  }
+  .next-body{
+    padding:16px;
+  }
+  .next-title{
+    margin:0;
+    font-weight:900;
+    font-size:14px;
+  }
+  .next-line{
+    margin:6px 0 0;
+    color:#334155;
+    font-size:13px;
+    font-weight:700;
+  }
+  .next-actions{
+    margin-top:12px;
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+
+  .btn-round{
+    border-radius:12px;
+    font-weight:800;
+    padding:10px 14px;
+  }
+
+  .clock{
+    font-weight:900;
+    font-size:13px;
+    color:#0f172a;
+    background:#fff;
+    border:1px solid #e2e8f0;
+    padding:8px 10px;
+    border-radius:12px;
+    box-shadow: 0 8px 20px rgba(16,24,40,.06);
+  }
+
+  @media (max-width: 992px){
+    .dash-header{ flex-direction:column; }
+    .clock{ align-self:flex-start; }
+  }
+</style>
+
+<div class="dash-header">
+  <div>
+    <h3 class="dash-title">Doctor Dashboard</h3>
+    <p class="dash-sub">Daily overview of your appointments and patient flow</p>
+  </div>
+
+  <div class="clock" id="liveClock">--:--</div>
+</div>
+
+<!-- ================= KPI ROW ================= -->
+<div class="row g-4">
+  <div class="col-md-3">
+    <div class="card kpi-card">
+      <div class="kpi-body">
+        <div>
+          <div class="kpi-label">Appointments Today</div>
+          <div class="kpi-value text-primary">{{ my_today }}</div>
+        </div>
+        <div class="kpi-icon">📅</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3">
+    <div class="card kpi-card">
+      <div class="kpi-body">
+        <div>
+          <div class="kpi-label">Scheduled</div>
+          <div class="kpi-value text-success">{{ total_my_scheduled }}</div>
+        </div>
+        <div class="kpi-icon">🗓️</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3">
+    <div class="card kpi-card">
+      <div class="kpi-body">
+        <div>
+          <div class="kpi-label">Completed</div>
+          <div class="kpi-value text-dark">{{ my_completed }}</div>
+        </div>
+        <div class="kpi-icon">🩺</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3">
+    <div class="card kpi-card">
+      <div class="kpi-body">
+        <div>
+          <div class="kpi-label">Cancelled</div>
+          <div class="kpi-value text-danger">{{ my_cancelled }}</div>
+        </div>
+        <div class="kpi-icon">❌</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= PROGRESS + NEXT PATIENT ================= -->
+<div class="section-title">Today’s Progress</div>
+
+{% with total=my_today|add:0 %}
+{% with completed=my_completed|add:0 %}
+{% with progress=0 %}
+{% endwith %}
+{% endwith %}
+{% endwith %}
+
+<div class="row g-4">
+
+  <div class="col-lg-6">
+    <div class="panel-card">
+      <div class="panel-head">
+        <div>
+          <h5>Completion Rate</h5>
+          <div class="small">Completed vs total today</div>
+        </div>
+        <span class="badge-soft">
+          {{ my_completed }} / {{ my_today }}
+        </span>
+      </div>
+
+      <div class="progress-wrap">
+        {# Note: width is calculated in JS for safety #}
+        <div class="progress-meta">
+          <span>Progress</span>
+          <span id="progressText">0%</span>
+        </div>
+        <div class="progress" role="progressbar" aria-label="Doctor progress">
+          <div class="progress-bar" id="progressBar" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Next Patient (optional) -->
+  <div class="col-lg-6">
+    <div class="panel-card next-card">
+      <div class="panel-head" style="border-bottom:0;">
+        <div>
+          <h5>Next Patient</h5>
+          <div class="small">Your next scheduled appointment (if provided)</div>
+        </div>
+        <span class="badge-soft">Queue</span>
+      </div>
+
+      <div class="next-body">
+        {% if next_appointment %}
+          <p class="next-title">
+            {{ next_appointment.patient.full_name }}
+          </p>
+          <p class="next-line">
+            🕒 {{ next_appointment.appointment_time|date:"h:i A" }}
+            • 📌 {{ next_appointment.reason|default:"Consultation" }}
+          </p>
+
+          <div class="next-actions">
+            <a class="btn btn-primary btn-round" href="{% url 'appointment_list' %}">
+              Open Schedule
+            </a>
+
+            {# Optional: only if you have this url/view #}
+            {# <a class="btn btn-outline-success btn-round" href="{% url 'appointment_complete' next_appointment.id %}">Mark Completed</a> #}
+          </div>
+        {% else %}
+          <p class="next-title">No upcoming appointment found</p>
+          <p class="next-line">Your next scheduled appointment will appear here.</p>
+          <div class="next-actions">
+            <a class="btn btn-primary btn-round" href="{% url 'appointment_list' %}">
+              View My Appointments
+            </a>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ================= TODAY LIST ================= -->
+<div class="section-title">Today’s Appointments</div>
+
+<div class="panel-card">
+  <div class="panel-head">
+    <div>
+      <h5>Schedule</h5>
+      <div class="small">Your appointments for today</div>
+    </div>
+
+    <a class="btn btn-sm btn-outline-primary btn-round" href="{% url 'appointment_list' %}">
+      View All
+    </a>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-hover mb-0 align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>Time</th>
+          <th>Patient</th>
+          <th>Reason</th>
+          <th>Status</th>
+          <th class="text-end">Action</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% if today_list %}
+          {% for a in today_list %}
+            <tr>
+              <td class="fw-semibold">
+                {{ a.appointment_time|date:"h:i A" }}
+              </td>
+
+              <td>
+                {{ a.patient.full_name }}
+                {% if a.patient.phone_number %}
+                  <div class="text-muted small">{{ a.patient.phone_number }}</div>
+                {% endif %}
+              </td>
+
+              <td>{{ a.reason|default:"-" }}</td>
+
+              <td>
+                {% if a.status == "SCHEDULED" or a.status == "Scheduled" %}
+                  <span class="pill pill-scheduled">Scheduled</span>
+                {% elif a.status == "COMPLETED" or a.status == "Completed" %}
+                  <span class="pill pill-completed">Completed</span>
+                {% elif a.status == "CANCELLED" or a.status == "Cancelled" %}
+                  <span class="pill pill-cancelled">Cancelled</span>
+                {% else %}
+                  <span class="pill" style="background:#f1f5f9;border-color:#e2e8f0;color:#0f172a;">{{ a.status }}</span>
+                {% endif %}
+              </td>
+
+              <td class="text-end">
+                <a class="btn btn-sm btn-outline-secondary btn-round" href="{% url 'appointment_list' %}">
+                  Open
+                </a>
+
+              
+                {% if a.status == "Scheduled" or a.status == "SCHEDULED" %}
+                  <a class="btn btn-sm btn-outline-success btn-round" href="{% url 'appointment_complete' a.id %}">
+                    Complete
+                  </a>
+                {% endif %} 
+              </td>
+            </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="5" class="text-center text-muted py-4">
+              No appointments for today.
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  // Live clock (client-side)
+  function pad(n){ return n < 10 ? "0"+n : n; }
+  function tick(){
+    const now = new Date();
+    let h = now.getHours();
+    const m = pad(now.getMinutes());
+    const ampm = h >= 12 ? "PM" : "AM";
+    h = h % 12; h = h ? h : 12;
+    document.getElementById("liveClock").textContent = `${h}:${m} ${ampm}`;
+  }
+  tick(); setInterval(tick, 1000 * 20);
+
+  // Progress bar from Django values (safe)
+  const total = Number("{{ my_today|default:0 }}") || 0;
+  const done  = Number("{{ my_completed|default:0 }}") || 0;
+  const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
+
+  const bar = document.getElementById("progressBar");
+  const txt = document.getElementById("progressText");
+  if(bar) bar.style.width = pct + "%";
+  if(txt) txt.textContent = pct + "%";
+</script>
+
+{% endblock %}

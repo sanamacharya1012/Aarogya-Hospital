@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h3 class="fw-bold mb-1">{{ staff.full_name|default:"-" }}</h3>
+        <div class="text-muted">
+            <span class="me-2"><strong>Username:</strong> {{ staff.username }}</span>
+            <span class="me-2"><strong>Email:</strong> {{ staff.email|default:"-" }}</span>
+            <span class="me-2"><strong>Phone:</strong> {{ staff.phone_number|default:"-" }}</span>
+        </div>
+    </div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-secondary" href="{% url 'user_list' %}">Back</a>
+
+        <form method="post" action="{% url 'user_toggle_active' staff.id %}">
+            {% csrf_token %}
+            {% if staff.is_active %}
+                <button type="submit" class="btn btn-outline-danger">Deactivate</button>
+            {% else %}
+                <button type="submit" class="btn btn-outline-success">Activate</button>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card p-4 shadow-sm">
+            <h5 class="fw-bold mb-3">Edit Role / Department / Specialization</h5>
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+            {% endif%}
+
+            <form method="post">
+                {% csrf_token %}
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Role:</label>
+                        {{ form.role }}
+                        <div class="text-danger small">{{ form.role.errors }}</div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Department:</label>
+                        {{ form.department }}
+                        <div class="text-danger small">{{ form.department.errors }}</div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Specialization(doctor):</label>
+                        {{ form.specialization }}
+                        <div class="text-danger small">{{ form.specialization.errors }}</div>
+                        <div class="form-text">For doctors, department auto-set from specialization.</div>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2 mt-4">
+                    <button class="btn btn-primary">Save Changes</button>
+                    <a class="btn btn-outline-secondary" href="{% url 'user_detail' staff.id %}">Reset</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card p-4 shadow-sm">
+            <h5 class="fw-bold mb-3">Account Status</h5>
+
+            <div class="mb-2">
+                <strong>Status:</strong>
+                {% if staff.is_active %}
+                    <span class="badge text-bg-success">Active</span>
+                {% else %}
+                    <span class="badge text-bg-danger">Inactive</span>
+                {% endif %}
+            </div>
+            <div class="mb-2">
+                <strong>Current Role:</strong>
+                <span class="badge text-bg-secondary">{{ staff.role }}</span>
+            </div>
+            <div class="mb-2">
+                <strong>Department:</strong>{{ staff.department.name|default:"-" }}
+            </div>
+            <div class="mb-2">
+                <strong>Specialization:</strong>{{ staff.specialization.name|default:"-" }}
+            </div>
+
+            <div class="text-muted small mt-3">
+                Tip:Deactivating will block loging but keep records safely.
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+  document.querySelectorAll("input, select, textarea").forEach(el => {
+    if (el.tagName === "SELECT") el.classList.add("form-select");
+    else el.classList.add("form-control");
+  });
+
+  const roleSelect = document.getElementById("id_role");
+  const deptSelect = document.getElementById("id_department");
+  const specSelect = document.getElementById("id_specialization");
+
+  // Add wrappers in HTML if you want hide/show:
+  // <div id="departmentField"> ... </div>
+  // <div id="specializationField"> ... </div>
+  const deptField = document.getElementById("departmentField");
+  const specField = document.getElementById("specializationField");
+
+  function applyRoleUI() {
+    const role = roleSelect.value;
+
+    if (role === "DOCTOR") {
+      if (deptField) deptField.style.display = "none";
+      deptSelect.disabled = true;
+      deptSelect.value = "";
+
+      if (specField) specField.style.display = "block";
+      specSelect.disabled = false;
+
+    } else {
+      if (deptField) deptField.style.display = "block";
+      deptSelect.disabled = false;
+
+      specSelect.disabled = true;
+      specSelect.value = "";
+      if (specField) specField.style.display = "block";
+    }
+  }
+
+  roleSelect.addEventListener("change", applyRoleUI);
+  applyRoleUI();
+</script>
+
+{% endblock %}

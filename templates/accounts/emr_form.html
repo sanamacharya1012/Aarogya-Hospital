@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card p-4 shadow-sm">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <div>
+      <h3 class="fw-bold mb-1">Create EMR</h3>
+      <div class="text-muted">Patient: {{ patient.full_name }} ({{ patient.patient_id }})</div>
+    </div>
+    <a class="btn btn-outline-secondary" href="{% url 'patient_detail' patient.patient_id %}">Back</a>
+  </div>
+
+  <form method="post">
+    {% csrf_token %}
+
+    {% if emr_form.errors %}
+      <div class="alert alert-danger">
+        <strong>EMR Errors:</strong> {{ emr_form.errors }}
+      </div>
+    {% endif %}
+    {% if vitals_form.errors %}
+      <div class="alert alert-danger">
+        <strong>Vitals Errors:</strong> {{ vitals_form.errors }}
+      </div>
+    {% endif %}
+    {% if formset.errors %}
+      <div class="alert alert-danger">
+        <strong>Prescription Errors:</strong> {{ formset.errors }}
+      </div>
+    {% endif %}
+
+    <div class="row g-3">
+      <div class="col-12">
+        <label class="form-label">Diagnosis</label>
+        {{ emr_form.diagnosis }}
+      </div>
+
+      <div class="col-12">
+        <label class="form-label">Symptoms</label>
+        {{ emr_form.symptoms }}
+      </div>
+
+      <div class="col-12">
+        <label class="form-label">Prescription Notes</label>
+        {{ emr_form.prescription }}
+      </div>
+
+      <div class="col-12">
+        <label class="form-label">Doctor Notes</label>
+        {{ emr_form.notes }}
+      </div>
+    </div>
+
+    <hr class="my-4">
+
+    <h5 class="fw-bold mb-2">Vitals</h5>
+    <div class="row g-3">
+      <div class="col-md-3">
+        <label class="form-label">BP Systolic</label>
+        {{ vitals_form.bp_systolic }}
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">BP Diastolic</label>
+        {{ vitals_form.bp_diastolic }}
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Temp (°C)</label>
+        {{ vitals_form.temperature_c }}
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Pulse</label>
+        {{ vitals_form.pulse }}
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">SpO2 (%)</label>
+        {{ vitals_form.spo2 }}
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Weight (kg)</label>
+        {{ vitals_form.weight_kg }}
+      </div>
+    </div>
+
+    <hr class="my-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h5 class="fw-bold mb-0">Medicine Table</h5>
+      <button type="button" class="btn btn-sm btn-outline-primary" id="addRow">+ Add Medicine</button>
+    </div>
+
+    <!-- IMPORTANT: management form is required -->
+    {{ formset.management_form }}
+
+    <div class="table-responsive">
+      <table class="table table-hover align-middle" id="rxTable">
+        <thead class="table-light">
+          <tr>
+            <th>Medicine</th>
+            <th>Strength</th>
+            <th>Form</th>
+            <th>Dose</th>
+            <th>Frequency</th>
+            <th>Duration</th>
+            <th>Instructions</th>
+            <th style="width:90px;">Delete</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in formset %}
+          <tr class="rx-row">
+            <td>{{ f.medicine_name }}</td>
+            <td>{{ f.strength }}</td>
+            <td>{{ f.form }}</td>
+            <td>{{ f.dose }}</td>
+            <td>{{ f.frequency }}</td>
+            <td>{{ f.duration }}</td>
+            <td>{{ f.instructions }}</td>
+            <td class="text-center">{{ f.DELETE }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="d-flex gap-2 mt-3">
+      <button class="btn btn-success">Save EMR</button>
+      <a class="btn btn-outline-secondary" href="{% url 'patient_detail' patient.patient_id %}">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<script>
+  // Apply bootstrap classes
+  document.querySelectorAll("input, select, textarea").forEach(el => el.classList.add("form-control"));
+
+  // Add medicine row by cloning last row
+  const addBtn = document.getElementById("addRow");
+  const tableBody = document.querySelector("#rxTable tbody");
+  const totalForms = document.getElementById("id_rx-TOTAL_FORMS"); // prefix rx
+
+  addBtn.addEventListener("click", () => {
+    const rows = tableBody.querySelectorAll("tr.rx-row");
+    const last = rows[rows.length - 1];
+    const newRow = last.cloneNode(true);
+
+    let idx = parseInt(totalForms.value, 10);
+
+    newRow.querySelectorAll("input, select, textarea").forEach(el => {
+      if (el.name) el.name = el.name.replace(/rx-\d+-/g, `rx-${idx}-`);
+      if (el.id) el.id = el.id.replace(/rx-\d+-/g, `rx-${idx}-`);
+      if (el.type === "checkbox") el.checked = false;
+      else el.value = "";
+      el.classList.add("form-control");
+    });
+
+    tableBody.appendChild(newRow);
+    totalForms.value = idx + 1;
+  });
+</script>
+
+{% endblock %}

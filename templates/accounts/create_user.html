@@ -1,0 +1,542 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+    /* ===== Page Background ===== */
+    .hms-page{
+        min-height: calc(100vh - 120px);
+        background:
+            radial-gradient(1200px 600px at 10% 10%, rgba(13,110,253,.10), transparent 55%),
+            radial-gradient(900px 450px at 90% 15%, rgba(25,135,84,.10), transparent 55%),
+            linear-gradient(180deg, #f6f9ff 0%, #f8fafc 60%, #ffffff 100%);
+        padding: 26px 0;
+    }
+
+    /* ===== Card ===== */
+    .hms-card{
+        border: 0;
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 12px 40px rgba(15, 23, 42, 0.08);
+    }
+
+    /* ===== Header Strip ===== */
+    .hms-card-header{
+        background: linear-gradient(135deg, #0d6efd 0%, #1b7fff 50%, #19a974 120%);
+        color: #fff;
+        padding: 18px 22px;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap: 12px;
+    }
+
+    .hms-title{
+        display:flex;
+        align-items:center;
+        gap:12px;
+        margin: 0;
+        font-weight: 800;
+        letter-spacing: .2px;
+        font-size: 18px;
+    }
+
+    .hms-badge{
+        background: rgba(255,255,255,.18);
+        border: 1px solid rgba(255,255,255,.25);
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .hms-icon{
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        background: rgba(255,255,255,.16);
+        border: 1px solid rgba(255,255,255,.22);
+        font-size: 20px;
+    }
+
+    /* ===== Body ===== */
+    .hms-body{
+        padding: 22px;
+        background: #ffffff;
+    }
+
+    .hms-subtitle{
+        color:#475569;
+        font-size: 13px;
+        margin-bottom: 14px;
+    }
+
+    /* ===== Section Divider ===== */
+    .hms-divider{
+        display:flex;
+        align-items:center;
+        gap:10px;
+        margin: 18px 0 12px;
+        color:#0f172a;
+        font-weight: 800;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: .6px;
+    }
+    .hms-divider:after{
+        content:"";
+        flex:1;
+        height:1px;
+        background: #e2e8f0;
+    }
+
+    /* ===== Labels & Inputs ===== */
+    .form-label{
+        font-weight: 700;
+        font-size: 13px;
+        color: #0f172a;
+        margin-bottom: 6px;
+    }
+
+    .form-control, .form-select{
+        border-radius: 12px !important;
+        padding: 10px 12px !important;
+        border: 1px solid #e2e8f0 !important;
+        background: #fbfdff !important;
+        transition: .2s ease;
+        box-shadow: none !important;
+    }
+
+    .form-control:focus, .form-select:focus{
+        border-color: rgba(13,110,253,.55) !important;
+        background: #ffffff !important;
+        box-shadow: 0 0 0 .2rem rgba(13,110,253,.15) !important;
+    }
+
+    .hint{
+        font-size: 12px;
+        color: #64748b;
+        margin-top: 6px;
+    }
+
+    /* ===== Password field group ===== */
+    .pw-wrap{
+        position: relative;
+    }
+    .pw-toggle{
+        position:absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        border: 0;
+        background: transparent;
+        color:#0d6efd;
+        font-weight: 800;
+        font-size: 12px;
+        padding: 6px 8px;
+        border-radius: 10px;
+    }
+    .pw-toggle:hover{
+        background: rgba(13,110,253,.08);
+    }
+
+    /* ===== Strength Bar ===== */
+    .strength{
+        height: 8px;
+        border-radius: 999px;
+        background: #e2e8f0;
+        overflow:hidden;
+        margin-top: 8px;
+    }
+    .strength > div{
+        height: 100%;
+        width: 0%;
+        background: #0d6efd;
+        transition: width .25s ease;
+    }
+    .strength-text{
+        margin-top: 6px;
+        font-size: 12px;
+        font-weight: 700;
+        color:#475569;
+    }
+
+    /* ===== Footer Buttons ===== */
+    .hms-footer{
+        padding: 16px 22px 22px;
+        background: #ffffff;
+        display:flex;
+        align-items:center;
+        justify-content: space-between;
+        gap: 10px;
+        border-top: 1px solid #eef2f7;
+    }
+
+    .btn-hms{
+        border-radius: 12px;
+        padding: 10px 14px;
+        font-weight: 800;
+        letter-spacing:.2px;
+        transition: .2s ease;
+    }
+
+    .btn-hms-primary{
+        background: linear-gradient(135deg, #0d6efd 0%, #1b7fff 60%, #19a974 160%);
+        border: 0;
+    }
+    .btn-hms-primary:hover{
+        transform: translateY(-1px);
+        box-shadow: 0 10px 22px rgba(13,110,253,.25);
+    }
+
+    .btn-hms-light{
+        background: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        color:#0f172a;
+    }
+    .btn-hms-light:hover{
+        background:#eaf0f7;
+    }
+
+    /* ===== Toast ===== */
+    .toast-wrap{
+        position: fixed;
+        top: 18px;
+        right: 18px;
+        z-index: 9999;
+        width: min(360px, calc(100% - 36px));
+        display:none;
+    }
+    .toast-card{
+        background:#0f172a;
+        color:#fff;
+        border-radius: 14px;
+        padding: 12px 14px;
+        box-shadow: 0 16px 40px rgba(0,0,0,.20);
+        display:flex;
+        gap: 10px;
+        align-items:flex-start;
+    }
+    .toast-dot{
+        width: 10px; height: 10px;
+        margin-top: 5px;
+        border-radius: 999px;
+        background: #19a974;
+        flex: 0 0 auto;
+    }
+    .toast-title{
+        font-weight: 900;
+        font-size: 13px;
+        margin: 0;
+    }
+    .toast-msg{
+        margin: 2px 0 0;
+        font-size: 12px;
+        color: rgba(255,255,255,.85);
+    }
+
+    /* ===== Small Helper Row Spacing ===== */
+    .mb-3{ margin-bottom: 14px !important; }
+</style>
+
+<div class="hms-page">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-xl-7">
+
+            <!-- toast -->
+            {% if messages %}
+            <div class="toast-wrap" id="toastWrap">
+                <div class="toast-card">
+                    <div class="toast-dot"></div>
+                    <div>
+                        <p class="toast-title">Action completed</p>
+                        <p class="toast-msg">
+                            {% for message in messages %}
+                                {{ message }}{% if not forloop.last %} · {% endif %}
+                            {% endfor %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="card hms-card">
+
+                <div class="hms-card-header">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <div class="hms-icon">🏥</div>
+                        <div>
+                            <h3 class="hms-title">User Management</h3>
+                            <div style="opacity:.9; font-size:12px; font-weight:600;">
+                                Create staff accounts with role & department assignment
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="hms-badge">HMS • Admin Panel</div>
+                </div>
+
+                <div class="hms-body">
+                    <div class="hms-subtitle">
+                        Fill in accurate staff information. Password must be strong to protect patient data.
+                    </div>
+
+                    <form method="post" id="createUserForm">
+                        {% csrf_token %}
+
+                        <div class="hms-divider">Basic Details</div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Full Name</label>
+                                {{ form.full_name }}
+                                <div class="hint">Example: Dr. Sanam Acharya</div>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Phone Number</label>
+                                {{ form.phone_number }}
+                                <div class="hint">Used for account recovery & notifications</div>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Email</label>
+                                {{ form.email }}
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Username</label>
+                                {{ form.username }}
+                            </div>
+                        </div>
+
+                        <div class="hms-divider">Access Control</div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Role</label>
+                                {{ form.role }}
+                                <div class="hint">Controls permissions in modules</div>
+                            </div>
+
+                            <div class="col-md-6 mb-3" id="departmentField">
+                                <label class="form-label">Department</label>
+                                {{ form.department }}
+                                <div class="text-danger small">{{ form.department.errors }}</div>
+                                <div class="hint">Helps routing patient workflow</div>
+                            </div>
+                            <div class="col-md-6 mb-3" id="departmentField">
+                                <label class="form-label">Specialization (Doctor)</label>
+                                {{ form.specialization }}
+                                <div class="text-danger small">{{ form.specialization.errors }}</div>
+                            </div>
+                        </div>
+
+                        <div class="hms-divider">Security</div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Password</label>
+                                <div class="pw-wrap">
+                                    {{ form.password1 }}
+                                    <button class="pw-toggle" type="button" data-target="id_password1">SHOW</button>
+                                </div>
+
+                                <div class="strength" aria-hidden="true">
+                                    <div id="pwBar"></div>
+                                </div>
+                                <div class="strength-text" id="pwText">Strength: —</div>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Confirm Password</label>
+                                <div class="pw-wrap">
+                                    {{ form.password2 }}
+                                    <button class="pw-toggle" type="button" data-target="id_password2">SHOW</button>
+                                </div>
+                                <div class="hint">Must match the password above</div>
+                            </div>
+                        </div>
+
+                        <div class="hms-footer">
+                            <a href="javascript:history.back()" class="btn btn-hms btn-hms-light">
+                                ← Back
+                            </a>
+
+                            <button type="submit" class="btn btn-primary btn-hms btn-hms-primary">
+                                Create User
+                            </button>
+                        </div>
+
+                    </form>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    // 1) Apply Bootstrap classes to Django widgets
+    document.querySelectorAll("input, select, textarea").forEach(el => {
+        if (el.tagName === "SELECT") {
+            el.classList.add("form-select");
+        } else {
+            el.classList.add("form-control");
+        }
+    });
+
+    // 2) Password show/hide toggle
+    document.querySelectorAll(".pw-toggle").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const id = btn.getAttribute("data-target");
+            const input = document.getElementById(id);
+            if (!input) return;
+
+            const isPassword = input.getAttribute("type") === "password";
+            input.setAttribute("type", isPassword ? "text" : "password");
+            btn.textContent = isPassword ? "HIDE" : "SHOW";
+        });
+    });
+
+    // 3) Simple password strength meter (client-side)
+    const pw1 = document.getElementById("id_password1");
+    const bar = document.getElementById("pwBar");
+    const text = document.getElementById("pwText");
+
+    function scorePassword(pw){
+        let score = 0;
+        if (!pw) return 0;
+
+        // length
+        if (pw.length >= 8) score += 25;
+        if (pw.length >= 12) score += 15;
+
+        // variety
+        if (/[a-z]/.test(pw)) score += 15;
+        if (/[A-Z]/.test(pw)) score += 15;
+        if (/[0-9]/.test(pw)) score += 15;
+        if (/[^A-Za-z0-9]/.test(pw)) score += 15;
+
+        // cap
+        return Math.min(score, 100);
+    }
+
+    function labelFromScore(s){
+        if (s === 0) return "—";
+        if (s < 40) return "Weak";
+        if (s < 70) return "Medium";
+        return "Strong";
+    }
+
+    if (pw1){
+        pw1.addEventListener("input", () => {
+            const s = scorePassword(pw1.value);
+            bar.style.width = s + "%";
+            text.textContent = "Strength: " + labelFromScore(s);
+        });
+    }
+
+    // 4) Show toast for Django messages
+    const toastWrap = document.getElementById("toastWrap");
+    if (toastWrap){
+        toastWrap.style.display = "block";
+        setTimeout(() => { toastWrap.style.display = "none"; }, 3500);
+    }
+</script>
+
+<script>
+  document.querySelectorAll("input, select").forEach(el => el.classList.add("form-control"));
+
+  const roleSelect = document.getElementById("id_role");
+  const deptField = document.getElementById("departmentField");
+  const deptSelect = document.getElementById("id_department");
+
+  const specField = document.getElementById("specializationField");
+  const specSelect = document.getElementById("id_specialization");
+
+  function applyRoleUI() {
+    const role = roleSelect.value;
+
+    if (role === "DOCTOR") {
+      // ✅ hide department UI + disable it
+      deptField.style.display = "none";
+      deptSelect.disabled = true;
+      deptSelect.value = "";
+
+      // ✅ enable specialization
+      specSelect.disabled = false;
+      specField.style.display = "block";
+    } else {
+      // ✅ show department UI + enable it
+      deptField.style.display = "block";
+      deptSelect.disabled = false;
+
+      // ✅ disable specialization + clear it
+      specSelect.disabled = true;
+      specSelect.value = "";
+      specField.style.display = "block";
+    }
+  }
+
+  roleSelect.addEventListener("change", applyRoleUI);
+  applyRoleUI(); // run on page load
+</script>
+
+<script>
+const roleSelect = document.getElementById("id_role");
+const deptField = document.getElementById("departmentField");
+const deptSelect = document.getElementById("id_department");
+const specField = document.getElementById("specializationField");
+const specSelect = document.getElementById("id_specialization");
+
+async function loadSpecializations(deptId) {
+    specSelect.innerHTML = '<option value="">Loading...</option>';
+
+    if (!deptId) {
+        specSelect.innerHTML = '<option value="">Select department first</option>';
+        return;
+    }
+
+    const res = await fetch(`/api/specializations/?department_id=${deptId}`);
+    const data = await res.json();
+
+    specSelect.innerHTML = '<option value="">Select specialization</option>';
+
+    data.items.forEach(item => {
+        const opt = document.createElement("option");
+        opt.value = item.id;
+        opt.textContent = item.name;
+        specSelect.appendChild(opt);
+    });
+}
+
+function applyRoleUI() {
+    const role = roleSelect.value;
+
+    if (role === "DOCTOR") {
+        deptField.style.display = "block";
+        specSelect.disabled = false;
+    } else {
+        specSelect.disabled = true;
+        specSelect.value = "";
+    }
+}
+
+deptSelect.addEventListener("change", function(){
+    if (roleSelect.value === "DOCTOR") {
+        loadSpecializations(this.value);
+    }
+});
+
+roleSelect.addEventListener("change", applyRoleUI);
+applyRoleUI();
+</script>
+    
+
+{% endblock %}

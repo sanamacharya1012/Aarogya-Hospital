@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3 class="fw-bold mb-0">EMR Search</h3>
+</div>
+
+<form class="card p-3 mb-3" method="get">
+  <div class="row g-2">
+    <div class="col-md-4">
+      <input class="form-control" name="q" value="{{ q }}" placeholder="Diagnosis / Patient ID / Patient name" />
+    </div>
+
+    <div class="col-md-2">
+      <input class="form-control" type="date" name="date_from" value="{{ date_from }}" />
+    </div>
+
+    <div class="col-md-2">
+      <input class="form-control" type="date" name="date_to" value="{{ date_to }}" />
+    </div>
+
+    {% if user.role != "DOCTOR" %}
+      <div class="col-md-3">
+        <select class="form-select" name="doctor_id">
+          <option value="">All Doctors</option>
+          {% for d in doctors %}
+            <option value="{{ d.id }}" {% if doctor_id|stringformat:"s" == d.id|stringformat:"s" %}selected{% endif %}>
+              {{ d.full_name }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+    {% endif %}
+
+    <div class="{% if user.role != 'DOCTOR' %}col-md-1{% else %}col-md-4{% endif %} d-grid">
+      <button class="btn btn-dark">Search</button>
+    </div>
+  </div>
+</form>
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0 align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>Date</th>
+          <th>Patient</th>
+          <th>Doctor</th>
+          <th>Diagnosis</th>
+          <th style="width:260px;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in results %}
+          <tr>
+            <td>{{ e.created_at|date:"Y-m-d H:i" }}</td>
+            <td>{{ e.patient.patient_id }} • {{ e.patient.full_name }}</td>
+            <td>{{ e.doctor.full_name }}</td>
+            <td class="text-muted">{{ e.diagnosis|truncatechars:60 }}</td>
+            <td class="d-flex gap-2 flex-wrap">
+              <a class="btn btn-sm btn-outline-primary" href="{% url 'patient_detail' e.patient.patient_id %}">Patient</a>
+              <a class="btn btn-sm btn-outline-dark" href="{% url 'emr_pdf' e.id %}">PDF</a>
+
+              {% if user.role == "DOCTOR" and e.doctor_id == user.id %}
+                <a class="btn btn-sm btn-outline-success" href="{% url 'emr_edit' e.id %}">Edit</a>
+              {% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="5" class="text-center text-muted py-4">No results.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

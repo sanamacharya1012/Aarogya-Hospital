@@ -1,0 +1,337 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+.section-title{
+  font-size:13px;
+  font-weight:900;
+  letter-spacing:.8px;
+  text-transform:uppercase;
+  color:#64748b;
+  margin:18px 0 10px;
+}
+
+.kpi-card{
+  border:0;
+  border-radius:16px;
+  box-shadow:0 10px 25px rgba(16,24,40,.07);
+  transition:.2s ease;
+}
+.kpi-card:hover{
+  transform:translateY(-2px);
+  box-shadow:0 18px 40px rgba(16,24,40,.1);
+}
+.kpi-body{
+  padding:18px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+.kpi-label{
+  font-size:12px;
+  text-transform:uppercase;
+  font-weight:800;
+  letter-spacing:.6px;
+  color:#64748b;
+}
+.kpi-value{
+  font-size:38px;
+  font-weight:900;
+  line-height:1;
+}
+.kpi-icon{
+  width:42px;height:42px;
+  border-radius:14px;
+  background:#f1f5f9;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.kpi-icon svg{width:20px;height:20px;}
+</style>
+
+<h3 class="fw-bold mb-2">Dashboard</h3>
+
+<!-- ================= PATIENTS & STAFF ================= -->
+<div class="section-title">Patients & Staff</div>
+<div class="row g-4">
+
+  <div class="col-md-4">
+    <div class="card kpi-card">
+      <div class="kpi-body">
+        <div>
+          <div class="kpi-label">Total Patients</div>
+          <div class="kpi-value text-primary">{{ total_patients }}</div>
+        </div>
+        <div class="kpi-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M3 21v-2a6 6 0 0 1 12 0v2"></path>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card kpi-card">
+      <div class="kpi-body">
+        <div>
+          <div class="kpi-label">Currently Admitted</div>
+          <div class="kpi-value text-success">{{ admitted_count }}</div>
+        </div>
+        <div class="kpi-icon">
+          🏥
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card kpi-card">
+      <div class="kpi-body">
+        <div>
+          <div class="kpi-label">Discharged</div>
+          <div class="kpi-value text-danger">{{ discharged_count }}</div>
+        </div>
+        <div class="kpi-icon">🚪</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card kpi-card">
+      <div class="kpi-body">
+        <div>
+          <div class="kpi-label">Doctors</div>
+          <div class="kpi-value text-primary">{{ total_doctors }}</div>
+        </div>
+        <div class="kpi-icon">🧑‍⚕️</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card kpi-card">
+      <div class="kpi-body">
+        <div>
+          <div class="kpi-label">Nurses</div>
+          <div class="kpi-value text-primary">{{ total_nurses }}</div>
+        </div>
+        <div class="kpi-icon">👩‍⚕️</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- ================= BEDS ================= -->
+<div class="section-title">Beds</div>
+<div class="row g-4">
+
+  <div class="col-md-4">
+    <div class="card kpi-card">
+      <div class="kpi-body">
+        <div>
+          <div class="kpi-label">Available Beds</div>
+          <div class="kpi-value text-success">{{ available_beds }}</div>
+        </div>
+        <div class="kpi-icon">🛏️</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card kpi-card">
+      <div class="kpi-body">
+        <div>
+          <div class="kpi-label">Occupied Beds</div>
+          <div class="kpi-value text-warning">{{ occupied_beds }}</div>
+        </div>
+        <div class="kpi-icon">🛌</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card kpi-card">
+      <div class="kpi-body">
+        <div>
+          <div class="kpi-label">Maintenance Beds</div>
+          <div class="kpi-value text-danger">
+            {{ maintenance_beds }}
+          </div>
+        </div>
+        <div class="kpi-icon">🔧</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- ================= APPOINTMENTS ================= -->
+<div class="section-title">Appointments</div>
+<div class="row g-4">
+
+  <div class="col-md-4">
+    <div class="card kpi-card">
+      <div class="kpi-body">
+        <div>
+          <div class="kpi-label">Today</div>
+          <div class="kpi-value text-primary">{{ today_appointments }}</div>
+        </div>
+        <div class="kpi-icon">📅</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card kpi-card">
+      <div class="kpi-body">
+        <div>
+          <div class="kpi-label">Scheduled</div>
+          <div class="kpi-value text-success">{{ scheduled_appointments }}</div>
+        </div>
+        <div class="kpi-icon">✔️</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card kpi-card">
+      <div class="kpi-body">
+        <div>
+          <div class="kpi-label">Cancelled</div>
+          <div class="kpi-value text-danger">{{ cancelled_appointments }}</div>
+        </div>
+        <div class="kpi-icon">❌</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="section-title">Doctors by Specialization</div>
+<div class="row g-4">
+
+  {% for d in doctor_by_specialization %}
+    <div class="col-md-3">
+      
+
+        <div class="card kpi-card specialization-card
+             spec-{{ d.specialization__name|slugify }}">
+
+          <div class="kpi-body">
+
+            <div>
+              <div class="kpi-label">
+                {{ d.specialization__name|default:"No Spec" }}
+              </div>
+              <div class="kpi-value">
+                {{ d.total }}
+              </div>
+            </div>
+
+            <div class="kpi-icon">
+              {% if d.specialization__name == "Cardiology" %}
+                ❤️
+              {% elif d.specialization__name == "Neurology (Brain & Nervous System)" %}
+                🧠
+              {% elif d.specialization__name == "Orthopedics (Bones & Joints)" %}
+                🦴
+              {% elif d.specialization__name == "Pediatrics" %}
+                👶
+              {% else %}
+                👨‍⚕️
+              {% endif %}
+            </div>
+
+          </div>
+        </div>
+
+      </a>
+    </div>
+  {% empty %}
+    <div class="col-12 text-muted">No doctors available.</div>
+  {% endfor %}
+
+</div>
+
+<div class="section-title">Laboratory Overview</div>
+
+<div class="row g-4">
+
+  <!-- Total Lab Orders -->
+  <div class="col-md-3">
+    <div class="card kpi-card">
+      <div class="kpi-body">
+        <div>
+          <div class="kpi-label">Total Orders</div>
+          <div class="kpi-value text-primary">{{ lab_total }}</div>
+          <a class="small text-decoration-none"
+             href="{% url 'lab_order_list' %}">
+             View Orders →
+          </a>
+        </div>
+        <div class="kpi-icon">🧪</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Today -->
+  <div class="col-md-3">
+    <div class="card kpi-card">
+      <div class="kpi-body">
+        <div>
+          <div class="kpi-label">Today</div>
+          <div class="kpi-value text-dark">{{ lab_today }}</div>
+          <div class="small text-muted">{{ today|default:"" }}</div>
+        </div>
+        <div class="kpi-icon">📅</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Requested -->
+  <div class="col-md-2">
+    <div class="card kpi-card">
+      <div class="kpi-body">
+        <div>
+          <div class="kpi-label">Requested</div>
+          <div class="kpi-value text-warning">{{ lab_requested }}</div>
+        </div>
+        <div class="kpi-icon">📝</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- In Progress -->
+  <div class="col-md-2">
+    <div class="card kpi-card">
+      <div class="kpi-body">
+        <div>
+          <div class="kpi-label">In Progress</div>
+          <div class="kpi-value text-info">{{ lab_in_progress }}</div>
+        </div>
+        <div class="kpi-icon">⏳</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Completed -->
+  <div class="col-md-2">
+    <div class="card kpi-card">
+      <div class="kpi-body">
+        <div>
+          <div class="kpi-label">Completed</div>
+          <div class="kpi-value text-success">{{ lab_completed }}</div>
+        </div>
+        <div class="kpi-icon">✔️</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

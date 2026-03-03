@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .hms-page{
+    background:
+      radial-gradient(1200px 600px at 10% 10%, rgba(13,110,253,.10), transparent 55%),
+      radial-gradient(900px 450px at 90% 15%, rgba(25,135,84,.10), transparent 55%),
+      linear-gradient(180deg, #f6f9ff 0%, #f8fafc 60%, #ffffff 100%);
+    padding: 10px 0 0;
+  }
+
+  .hms-card{
+    border:0;
+    border-radius:18px;
+    overflow:hidden;
+    box-shadow:0 12px 40px rgba(15,23,42,.08);
+  }
+
+  .hms-card-header{
+    background: linear-gradient(135deg, #0d6efd 0%, #1b7fff 50%, #19a974 120%);
+    color:#fff;
+    padding:18px 22px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+  }
+
+  .hms-title{
+    margin:0;
+    font-weight:900;
+    letter-spacing:.2px;
+    font-size:18px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+
+  .hms-badge{
+    background: rgba(255,255,255,.18);
+    border: 1px solid rgba(255,255,255,.25);
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+
+  .hms-body{
+    padding:22px;
+    background:#fff;
+  }
+
+  .hms-subtitle{
+    color:#475569;
+    font-size:13px;
+    margin-bottom:14px;
+  }
+
+  .hms-divider{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin: 18px 0 12px;
+    color:#0f172a;
+    font-weight:900;
+    font-size:13px;
+    text-transform:uppercase;
+    letter-spacing:.6px;
+  }
+  .hms-divider:after{
+    content:"";
+    flex:1;
+    height:1px;
+    background:#e2e8f0;
+  }
+
+  .form-label{
+    font-weight:700;
+    font-size:13px;
+    color:#0f172a;
+    margin-bottom:6px;
+  }
+
+  .form-control, .form-select{
+    border-radius:12px !important;
+    padding:10px 12px !important;
+    border:1px solid #e2e8f0 !important;
+    background:#fbfdff !important;
+    box-shadow:none !important;
+    transition:.2s ease;
+  }
+  .form-control:focus, .form-select:focus{
+    border-color: rgba(13,110,253,.55) !important;
+    background:#fff !important;
+    box-shadow: 0 0 0 .2rem rgba(13,110,253,.15) !important;
+  }
+
+  .hms-footer{
+    padding:16px 22px 22px;
+    background:#fff;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    border-top:1px solid #eef2f7;
+  }
+
+  .btn-hms{
+    border-radius:12px;
+    padding:10px 14px;
+    font-weight:800;
+    letter-spacing:.2px;
+  }
+  .btn-hms-primary{
+    background: linear-gradient(135deg, #0d6efd 0%, #1b7fff 60%, #19a974 160%);
+    border:0;
+  }
+  .btn-hms-primary:hover{
+    transform: translateY(-1px);
+    box-shadow:0 10px 22px rgba(13,110,253,.25);
+  }
+  .btn-hms-light{
+    background:#f1f5f9;
+    border:1px solid #e2e8f0;
+    color:#0f172a;
+  }
+  .btn-hms-light:hover{ background:#eaf0f7; }
+
+  code{ font-size: 12px; }
+</style>
+
+<div class="hms-page">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-xl-7">
+
+            <div class="card hms-card">
+                <div class="hms-card-header">
+                    <div>
+                        <h3 class="hms-title">🧬Lab Test Type</h3>
+                        <div style="opacity:9; font-size;12px; font-weight:600;">
+                            Create & manage lab tests (CBC, LFT, RFT, ...) with normal range and pricing
+                        </div>
+                    </div>
+                    <div class="hms-badge">LAB • Admin</div>
+                </div>
+
+                <div class="hms-body">
+                    <div class="hms-subtitle">
+                        Enter correct normal range format (e.g. <code>3.5-5.5</code>, <code>>= 10>/code>, <code><= 200</code>).
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <div class="hms-divider">Test Details</div>
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Name</label>
+                                {{ form.name }}
+                                {% for error in form.name.errors %}
+                                    <div class="text-danger small">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Department</label>
+                                {{ form.department }}
+                                {% for error in form.department.errors %}
+                                    <div class="text-danger small">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Normal Range</label>
+                                {{ form.normal_range }}
+                                <div class="form-text">
+                                    Examples: <code>3.5-5.5</code>, <code>>= 10</code>, <code><= 200</code>
+                                </div>
+                                {% for error in form.normal_range.errors %}
+                                    <div class="text-danger small">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Unit</label>
+                                {{ form.unit }}
+                                {% for error in form.unit.errors %}
+                                    <div class="text-danger small">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Price</label>
+                                {{ form.price }}
+                                {% for error in form.price.errors %}
+                                    <div class="text-danger small">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="hms-footer">
+                            <a class="btn btn-hms btn-hms-light" href="{% url 'lab_testtype_list' %}">←Back</a>
+                            <button class="btn btn-primary btn-hms btn-hms-primary" type="submit">Save</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    document.querySelectorAll("input, select, textarea") .forEach(el => {
+        if(el.tagName === "SELECT"){
+            el.classList.add("form-select");
+        }else{
+            el.classList.add("form-control")
+        }
+    });
+</script>
+                            
+{% endblock %}

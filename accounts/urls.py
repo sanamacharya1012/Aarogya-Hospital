@@ -1,5 +1,5 @@
 from django.urls import path, include
-from .views import login_view, logout_view, dashboard_view, create_user_view, patient_detail_view, patient_list_view, patient_create_view, admit_patient_view, discharge_patient_view, available_bed_api, appointment_create_view, appointment_list_view, appointment_complete_view, appointment_cancel_view, emr_create_view, emr_update_view, emr_search_view, emr_pdf_view, assign_doctor_view, specializations_api, user_list_view, user_detail_view, user_toggle_active_view, lab_order_list_view, lab_order_detail_view, lab_order_create_view, lab_result_entry_view, lab_order_status_view
+from .views import login_view, logout_view, dashboard_view, create_user_view, patient_detail_view, patient_list_view, patient_create_view, admit_patient_view, discharge_patient_view, available_bed_api, appointment_create_view, appointment_list_view, appointment_complete_view, appointment_cancel_view, emr_create_view, emr_update_view, emr_search_view, emr_pdf_view, assign_doctor_view, specializations_api, user_list_view, user_detail_view, user_toggle_active_view, lab_order_list_view, lab_order_detail_view, lab_order_create_view, lab_result_entry_view, lab_order_status_view, lab_testtype_list_view, lab_testtype_create_view, lab_testtype_delete_view, lab_testtype_edit_view
 urlpatterns = [
     path('login/', login_view, name='login'),
     path('logout/', logout_view, name='logout'),
@@ -29,4 +29,8 @@ urlpatterns = [
     path("patients/<str:patient_id>/lab/create/", lab_order_create_view, name="lab_order_create"),
     path("lab/orders/<int:order_id>/results/", lab_result_entry_view, name="lab_result_entry"),
     path("lab/orders/<int:order_id>/status.<str:status>/", lab_order_status_view, name="lab_order_status"),
+    path("lab/tests/", lab_testtype_list_view, name="lab_testtype_list"),
+    path("lab/tests/create/", lab_testtype_create_view, name="lab_testtype_create"),
+    path("lab/tests/<int:test_id>/edit/", lab_testtype_edit_view, name="lab_testtype_edit"),
+    path("lab/tests/<int:test_id>/delete/", lab_testtype_delete_view, name="lab_testtype_delete"),
 ]

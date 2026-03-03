@@ -35,15 +35,19 @@
     {% endif %}
 
     <div class="hms-menu-title mt-3">EMR</div>
-    <a class="hms-link{% if  '/emr/search' in request.path %}active{% endif %}"
-          href="{% url 'emr_search' %}">
+    <a class="hms-link {% if '/emr/search/' in request.path %}active{% endif %}"
+          href="{% url 'emr_search'  %}">
           🩺📄<span>EMR Search</span>
     </a>
     <div class="hms-menu-title mt-3">Lab</div>
-    <a class="hms-link{% if '/lab/orders/' in request.path %}active{% endif %}"
+    <a class="hms-link {% if '/lab/orders/' in request.path %}active{% endif %}"
           href="{% url 'lab_order_list' %}">
-          🧪 Lab Orders
-  </a>
+          🧪<span> Lab Orders</span>
+    </a>
+    <a class="hms-link {% if '/lab/test-types/' in request.path %}active{% endif %}"
+          href="{% url 'lab_testtype_list' %}">
+          🧬 <span>Lab Test Types</span>
+    </a>
 
     <a class="hms-link" href="{% url 'logout' %}">
       🚪 <span>Logout</span>

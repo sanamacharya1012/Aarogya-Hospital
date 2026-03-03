@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import get_user_model
-from .models import Patient, Admission, Bed, Appointment, EMR, Vitals, PrescriptionItem, Specialization, LabOrder, LabOrderItem
+from .models import Patient, Admission, Bed, Appointment, EMR, Vitals, PrescriptionItem, Specialization, LabOrder, LabOrderItem, LabTestType
 from django.forms import inlineformset_factory
 
 
@@ -211,3 +211,11 @@ LabResultFormSet = inlineformset_factory(
     extra=0,
     can_delete=False,
 )
+
+class LabTestTypeForm(forms.ModelForm):
+    class Meta:
+        model = LabTestType
+        fields = ["name", "department", "normal_range", "unit", "price"]
+        widgets = {
+            "normal_range": forms.TextInput(attrs={"placeholder": "e.g. 3.5-5.5 or  >= 10 or  <= 200"}),
+        }

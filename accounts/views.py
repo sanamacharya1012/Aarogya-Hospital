@@ -7,7 +7,7 @@ from django.utils import timezone
 from datetime import date
 
 from .decorators import roles_required
-from .forms import CreateUserForm, LoginForm, PatientForm, AdmissionForm, AppointmentForm, EMRForm, VitalsForm, PrescriptionFormSet, AssignDoctorForm, Specialization, UserUpdateForm, LabOrderForm, LabOrderItemFormSet, LabResultFormSet
+from .forms import CreateUserForm, LoginForm, PatientForm, AdmissionForm, AppointmentForm, EMRForm, VitalsForm, PrescriptionFormSet, AssignDoctorForm, Specialization, UserUpdateForm, LabOrderForm, LabOrderItemFormSet, LabResultFormSet, LabTestTypeForm
 
 from .models import  Patient, Admission, Bed, Appointment, EMR, Department, LabOrder, LabTestType
 from django.db import transaction
@@ -875,3 +875,51 @@ def lab_result_entry_view(request, order_id):
             return redirect("lab_order_detail", order_id=order.id)
         messages.error(request,"Please fix the errors below.")
     return render(request, "accounts/lab_result_entry.html", {"order": order, "formset": formset})
+
+@login_required
+@roles_required("ADMIN")
+def lab_testtype_list_view(request):
+    q = (request.GET.get("q") or "").strip()
+
+    qs = LabTestType.objects.select_related("department").order_by("name")
+    if q:
+        qs =qs.filter(name__icontains=q)
+
+    paginator = Paginator(qs , 15)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
+    return render(request, "accounts/testtype_list.html", {"page_obj": page_obj, "q": q})
+
+@login_required
+@roles_required("ADMIN")
+def lab_testtype_create_view(request):
+    form = LabTestTypeForm(request.POST or None)
+    if request.method == "POST":
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Lab test type created.")
+            return  redirect("lab_testtype_list")
+        messages.error(request, "Please fix the errors below.")
+    return render(request, "accounts/testtype_form.html", {"form": form, "mode": "create"})
+
+@login_required
+@roles_required("ADMIN")
+def lab_testtype_edit_view(request, test_id):
+    obj = get_object_or_404(LabTestType, id=test_id)
+    form = LabTestTypeForm(request.POST or None, instance=obj)
+    if request.method == "POST":
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Lab test type updated.")
+            return redirect("lab_testtype_list")
+        messages.error(request, "Please fix the errors below.")
+    return render(request, "account/testtype_form.html", {"form": form, "mode": "edit", "obj": obj })
+
+@login_required
+@roles_required("ADMIN")
+@require_POST
+def lab_testtype_delete_view(request, test_id):
+    obj = get_object_or_404(LabTestType, id=test_id)
+    obj.delete()
+    messages.success(request, "Lab test type deleted.")
+    return redirect("lab_testtype_list")

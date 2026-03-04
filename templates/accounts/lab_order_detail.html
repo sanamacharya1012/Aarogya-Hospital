@@ -11,12 +11,13 @@
 <div class="card p-3 mb-3">
     <div><strong>Status:</strong><span class="badge text-bg-secondary">{{ order.status }}</span></div>
     <div class="mt-2"><strong>Notes:</strong>{{ orders.notes|default:"-" }}</div>
-    {% if user.role == "ADMIN" or user.role == "RECEPTION" %}
+    {% if user.role == "ADMIN" or user.role == "RECEPTION" or user.role == "LAB" %}
         <div class="mt-3 d-flex gap-2 flex-wrap">
             <a class="btn btn-outline-secondary btn-sm" href="{% url 'lab_order_status' order.id 'SAMPLE_COLLECTED' %}">Sample Collected</a>
             <a class="btn btn-outline-secondary btn-sm" href="{% url 'lab_order_status' order.id 'IN_PROGRESS' %}">In Progress</a>
             <a class="btn btn-outline-danger btn-sm" href="{% url 'lab_order_status' order.id 'CANCELLED' %}">Cancel</a>
             <a class="btn btn-outline-primary btn-sm" href="{% url 'lab_result_entry' order.id %}">Enter Results</a>
+            <a class="btn btn-outline-dark btn-sm" href="{% url 'lab_order_pdf' order.id %}">PDF</a>
         </div>
     {% endif %}
 </div>

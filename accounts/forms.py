@@ -120,7 +120,7 @@ class AssignDoctorForm(forms.ModelForm):
 class AdmissionForm(forms.ModelForm):
     class Meta:
         model = Admission
-        fields = ['ward', 'bed', 'reason', 'notes']
+        fields = ['ward', 'bed', 'reason', 'notes', 'is_icu', 'on_ventilator']
 
         def clean_bed(self):
             bed = self.cleaned_data.get("bed")

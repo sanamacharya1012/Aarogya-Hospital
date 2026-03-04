@@ -3,6 +3,7 @@ from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 from datetime import date
 from django.conf import settings
+from decimal import Decimal
 
 # Create your models here.
 
@@ -21,6 +22,8 @@ class User(AbstractUser):
         LAB = 'LAB', 'Lab'
         PHARMACY = 'PHARMACY', 'Pharmacy'
         HR = 'HR', 'HR'
+        CASHIER = "CASHIER", "Cashier"
+        ACCOUNTANT = "ACCOUNTANT", "Accountant"
     
     full_name = models.CharField(max_length=150)
     phone_number = models.CharField(max_length=20, blank=True)
@@ -119,6 +122,9 @@ class Admission(models.Model):
 
     ward = models.ForeignKey(Ward, on_delete=models.SET_NULL, null=True, blank=True)
     bed = models.ForeignKey(Bed, on_delete=models.SET_NULL, null=True, blank=True)
+
+    is_icu = models.BooleanField(default=False)
+    on_ventilator = models.BooleanField(default=False)
 
     reason = models.TextField(max_length=255, blank=True)
     notes = models.TextField(blank=True)
@@ -268,3 +274,19 @@ class LabOrderItem(models.Model):
 
     def __str__(self):
         return f"{ self.order_id } - { self.test_type.name}"
+    
+
+class WardTariff(models.Model):
+    ward = models.OneToOneField("Ward", on_delete=models.CASCADE, related_name="tariff")
+
+    bed_charge_per_day = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    # icu pricing
+    is_icu = models.BooleanField(default=False)
+    icu_extra_per_day = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    # Ventilator Pricing
+    ventilator_extra_per_day = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    def __str__(self):
+        return f"{self.ward} Tariff"

@@ -3,7 +3,8 @@ from django.contrib.auth import authenticate, login, logout, get_user_model
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.shortcuts import redirect, render, get_object_or_404
-from django.utils import timezone
+from django.utils import timezone 
+from .utils import is_abnormal_value
 from datetime import date
 
 from .decorators import roles_required
@@ -19,7 +20,7 @@ from django.http import HttpResponse
 from django.template.loader import render_to_string
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.units import mm
+from reportlab.lib.units import mm, cm
 
 User = get_user_model()
 # Create your views here.
@@ -81,6 +82,37 @@ def dashboard_view(request):
             appointment_time__gte=now_time
         ).select_related("patient").order_by("appointment_time").first()
 
+        today = timezone.localdate()
+
+        lab_qs = LabOrder.objects.select_related(
+            "patient"
+            ).filter(
+            patient__assigned_doctor=request.user
+        )
+        
+        lab_total = lab_qs.count()
+
+        lab_today = lab_qs.filter(
+            created_at__date=today
+        ).count()
+
+        lab_requested = lab_qs.filter(
+            status=LabOrder.Status.REQUESTED
+        ).count()
+
+        lab_in_progress = lab_qs.filter(
+            status=LabOrder.Status.IN_PROGRESS
+        ).count()
+
+        lab_completed = lab_qs.filter(
+            status=LabOrder.Status.COMPLETED
+        ).count()
+
+        # Table data for dashboard
+        today_lab_orders = lab_qs.filter(
+            created_at__date=today
+        ).order_by("-created_at")
+
         return render(request, "accounts/dashboard_doctor.html", {
             "my_today": my_today,
             "today_my_scheduled": today_my_scheduled,
@@ -88,6 +120,13 @@ def dashboard_view(request):
             "my_cancelled": my_cancelled,
             "today_list": today_list,
             "next_appointment": next_appointment,
+            "lab_total": lab_total,
+            "lab_today": lab_today,
+            "lab_requested": lab_requested,
+            "lab_in_progress": lab_in_progress,
+            "lab_completed": lab_completed,
+            "today_lab_orders": today_lab_orders,
+            "today": today,
         })
     
 
@@ -384,7 +423,7 @@ def discharge_patient_view(request, admission_id):
         messages.info(request, "Already Discharged")
         return redirect('patient_detail', patient_id=admission.patient.patient_id)
     
-    if  not admission.billling_cleared:
+    if  not admission.billing_cleared:
         messages.error(request, "Cannot discharge. Billing not cleared.")
         return redirect('patient_detail', patient_id=admission.patient.patient_id)
     
@@ -779,7 +818,7 @@ def can_access_patient(request, patient):
     return True
 
 @login_required
-@roles_required("ADMIN", "RECEPTION", "DOCTOR", "NURSE")
+@roles_required("ADMIN", "RECEPTION", "DOCTOR", "NURSE", "LAB")
 def lab_order_list_view(request):
     q = (request.GET.get("q") or "").strip()
 
@@ -798,7 +837,7 @@ def lab_order_list_view(request):
     return render(request, "accounts/lab_order_list.html", {"orders": orders, "q": q})
 
 @login_required
-@roles_required("ADMIN","RECEPTION","DOCTOR")
+@roles_required("ADMIN","RECEPTION","DOCTOR", "LAB")
 def lab_order_create_view(request, patient_id):
     patient = get_object_or_404(Patient, patient_id=patient_id)
 
@@ -829,7 +868,7 @@ def lab_order_create_view(request, patient_id):
     })
 
 @login_required
-@roles_required("ADMIN", "RECEPTION", "DOCTOR", "NURSE")
+@roles_required("ADMIN", "RECEPTION", "DOCTOR", "NURSE", "LAB")
 def lab_order_detail_view(request, order_id):
     order = get_object_or_404(
         LabOrder.objects.select_related("patient", "requested_by"), id=order_id
@@ -840,7 +879,7 @@ def lab_order_detail_view(request, order_id):
     return render(request, "accounts/lab_order_detail.html", {"order": order})
 
 @login_required
-@roles_required("ADMIN", "RECEPTION")
+@roles_required("ADMIN", "RECEPTION", "LAB")
 def lab_order_status_view(request, order_id, status):
     order = get_object_or_404(LabOrder, id=order_id)
 
@@ -860,7 +899,7 @@ def lab_order_status_view(request, order_id, status):
     return redirect("lab_order_detail", order_id=order.id)
 
 @login_required
-@roles_required("ADMIN", "RECEPTION")
+@roles_required("ADMIN", "RECEPTION", "LAB")
 def lab_result_entry_view(request, order_id):
     order = get_object_or_404(LabOrder.objects.select_related("patient"), id=order_id)
 
@@ -869,6 +908,12 @@ def lab_result_entry_view(request, order_id):
     if request.method == "POST":
         if formset.is_valid():
             formset.save()
+
+            # auto set abnormal based on normal range
+            for it in order.items.select_related("test_type").all():
+                it.is_abnormal = is_abnormal_value(it.result_value, it.test_type.normal_range)
+                it.save(update_fields=["is_abnormal"])
+
             order.status = LabOrder.Status.COMPLETED
             order.save(update_fields=["status"])
             messages.success(request, "Results saved and order marked completed.")
@@ -923,3 +968,90 @@ def lab_testtype_delete_view(request, test_id):
     obj.delete()
     messages.success(request, "Lab test type deleted.")
     return redirect("lab_testtype_list")
+
+@login_required
+@roles_required("ADMIN", "RECEPTION", "LAB", "DOCTOR", "NURSE")
+def lab_order_pdf_view(request, order_id):
+    order = get_object_or_404(LabOrder.objects.select_related("patient", "requested_by"), id=order_id)
+
+    # Doctor/Nurse only assigned patients
+    if request.user.role in ["DOCTOR", "NURSE"]:
+        if order.patient.assigned_doctor_id != request.user.id:
+            messages.error(request, "You are not allowed to view this report.")
+            return redirect("lab_order_list")
+        
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] =f'inline; filename="lab_order_{order.id}.pdf"'
+
+    p = canvas.Canvas(response, pagesize=A4)
+    width, height = A4
+
+    y = height - 2 * cm 
+
+    #Header
+    p.setFont("Helvetica-Bold", 14)
+    p.drawString(2 * cm, y, "Hospital Lab Report")
+    y -= 0.8 * cm
+
+    p.setFont("Helvetica", 10)
+    p.drawString(2 * cm, y, f"Order #: {order.id}   Status: {order.status}")
+    y -= 0.6 * cm
+    p.drawString(2 * cm, y, f"Patient #: {order.patient.full_name} ({order.patient.patient_id})")
+    y -= 0.6 * cm
+    p.drawString(2 * cm, y, f"Requested By: {order.requested_by.full_name if order.requested_by else '-'}")
+    y -= 0.6 * cm
+    p.drawString(2 * cm, y, f"Date: {order.created_at.strftime('%Y-%m-%d %H:%M')}")
+    y -= 1.0 * cm
+
+    #Notes
+    if order.notes:
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(2 * cm, y, "Notes:")
+        y -= 0.5 * cm
+        p.setFont("Helvetica", 10)
+        p.drawString(2 * cm, y, order.notes[:120])
+        y -= 0.8 * cm
+
+    # Table headers
+    p.setFont("Helvetica-Bold", 10)
+    p.drawString(2 * cm, y, "Test")
+    p.drawString(8 * cm, y, "Result")
+    p.drawString(12 * cm, y, "Normal Range")
+    p.drawString(16.5 * cm, y, "Flag")
+    y -= 0.4 * cm
+    p.line(2 * cm, y, width - 2 * cm, y)
+    y -= 0.6 * cm
+
+    #rows
+    p.setFont("Helvetica-Bold", 10)
+    for it in order.items.select_related("test_type").all():
+        if y < 2 * cm:
+            p.showPage()
+            y - height - 2* cm
+            p.setFont("Helvetica-Bold", 10)
+            p.drawString(2 * cm, y, "Test")
+            p.drawString(8 * cm, y, "Result")
+            p.drawString(12 * cm, y, "Normal Range")
+            p.drawString(16.5 * cm, y, "Flag")
+            y -= 0.4 * cm
+            p.line(2 * cm, y. width - 2 * cm, y)
+            y -= 0.6 * cm
+            p.setFont("Helvetica", 10)
+        test_name = it.test_type.name
+        result = it.result_value or "-"
+        normal = it.test_type.normal_range or "-"
+        flag = "ABN" if it.is_abnormal else ""
+
+        p.drawString(2 * cm, y, test_name[:35])
+        p.drawString(8 * cm, y, str(result)[:18])
+        p.drawString(12 * cm, y, str(normal)[:22])
+        p.drawString(16.5 * cm, y, flag)
+        y -= 0.6 * cm
+    
+    y -= 0.6 * cm
+    p.setFont("Helvetica", 9)
+    p.drawString(2 * cm, y, "Generated by HMS • Lab Module")
+
+    p.showPage()
+    p.save()
+    return response

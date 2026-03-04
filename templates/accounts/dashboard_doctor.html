@@ -413,6 +413,155 @@
     </table>
   </div>
 </div>
+<div class="section-title">Laboratory Overview</div>
+
+<div class="row g-4">
+
+  <div class="col-md-3">
+    <div class="card kpi-card">
+      <div class="kpi-body">
+        <div>
+          <div class="kpi-label">Lab Orders (Total)</div>
+          <div class="kpi-value text-primary">{{ lab_total }}</div>
+          <a class="small text-decoration-none" href="{% url 'lab_order_list' %}">View Lab Orders →</a>
+        </div>
+        <div class="kpi-icon">🧪</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3">
+    <div class="card kpi-card">
+      <div class="kpi-body">
+        <div>
+          <div class="kpi-label">Lab Orders (Today)</div>
+          <div class="kpi-value text-dark">{{ lab_today }}</div>
+          <div class="small text-muted">{{ today }}</div>
+        </div>
+        <div class="kpi-icon">📅</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-2">
+    <div class="card kpi-card">
+      <div class="kpi-body">
+        <div>
+          <div class="kpi-label">Requested</div>
+          <div class="kpi-value text-warning">{{ lab_requested }}</div>
+        </div>
+        <div class="kpi-icon">📝</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-2">
+    <div class="card kpi-card">
+      <div class="kpi-body">
+        <div>
+          <div class="kpi-label">In Progress</div>
+          <div class="kpi-value text-info">{{ lab_in_progress }}</div>
+        </div>
+        <div class="kpi-icon">⏳</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-2">
+    <div class="card kpi-card">
+      <div class="kpi-body">
+        <div>
+          <div class="kpi-label">Completed</div>
+          <div class="kpi-value text-success">{{ lab_completed }}</div>
+        </div>
+        <div class="kpi-icon">✅</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<div class="card shadow-sm mt-4">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <h5 class="fw-bold mb-0">Today's Lab Queue</h5>
+    <a class="btn btn-sm btn-outline-primary" href="{% url 'lab_order_list' %}">
+      View All
+    </a>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Order ID</th>
+          <th>Patient</th>
+          <th>Test</th>
+          <th>Doctor</th>
+          <th>Status</th>
+          <th style="width:180px;">Action</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for order in today_lab_orders %}
+        <tr>
+          <td class="fw-semibold">{{ order.id }}</td>
+
+          <td>
+            {{ order.patient.patient_id }} • {{ order.patient.full_name }}
+          </td>
+
+          <td>{{ order.test_type.name }}</td>
+
+          <td>{{ order.doctor.full_name }}</td>
+
+          <td>
+            {% if order.status == "REQUESTED" %}
+              <span class="badge text-bg-warning">Requested</span>
+            {% elif order.status == "IN_PROGRESS" %}
+              <span class="badge text-bg-info">In Progress</span>
+            {% elif order.status == "COMPLETED" %}
+              <span class="badge text-bg-success">Completed</span>
+            {% endif %}
+          </td>
+
+          <td class="d-flex gap-2 flex-wrap">
+
+            {% if order.status == "REQUESTED" %}
+              <a class="btn btn-sm btn-outline-primary"
+                 href="{% url 'lab_order_start' order.id %}">
+                 Start
+              </a>
+            {% endif %}
+
+            {% if order.status == "IN_PROGRESS" %}
+              <a class="btn btn-sm btn-outline-success"
+                 href="{% url 'lab_order_result' order.id %}">
+                 Add Result
+              </a>
+            {% endif %}
+
+            {% if order.status == "COMPLETED" %}
+              <a class="btn btn-sm btn-outline-dark"
+                 href="{% url 'lab_report_pdf' order.id %}">
+                 PDF
+              </a>
+            {% endif %}
+
+          </td>
+        </tr>
+
+        {% empty %}
+        <tr>
+          <td colspan="6" class="text-center text-muted py-4">
+            No lab orders today
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+
+    </table>
+  </div>
+</div>
 
 <script>
   // Live clock (client-side)

@@ -290,3 +290,92 @@ class WardTariff(models.Model):
 
     def __str__(self):
         return f"{self.ward} Tariff"
+    
+class BillingInvoice(models.Model):
+    class PatientType(models.TextChoices):
+        OPD = "OPD", "Opd"
+        IPD = "IPD", "Ipd"
+
+    class Status(models.TextChoices):
+        DRAFT = "DRAFT", "Draft"
+        PARTIAL = "PARTIAL", "Partial"
+        PAID = "PAID", "Paid"
+        CANCELLED = "CANCELLED", "Cancelled"
+
+    invoice_no = models.CharField(max_length=30, unique=True, blank=True)
+
+    patient = models.ForeignKey("Patient", on_delete=models.CASCADE, related_name="invoices")
+    patient_type = models.CharField(max_length=10, choices=PatientType.choices, default=PatientType.OPD)
+
+    appointment = models.ForeignKey("Appointment", on_delete=models.SET_NULL, null=True, blank=True, related_name="invoices")
+    lab_order = models.ForeignKey("LabOrder", on_delete=models.SET_NULL, null=True, blank=True, related_name="invoices")
+    admission = models.ForeignKey("Admission", on_delete=models.SET_NULL, null=True, blank=True, related_name="invoices")
+
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.DRAFT)
+
+    discount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    tax = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="created_invoices")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def savae(self, *args, **kwargs):
+        if not self.invoice_no:
+            last = BillingInvoice.objects.order_by("-id").first()
+            next_id = (last.id + 1) if last else 1
+            self.invoice_no = f"HMS_INV-{next_id:04d}"
+        super().save(*args, **kwargs)
+
+    @property
+    def subtotal(self):
+        return sum((i.line_total for i in self.item.all()), Decimal("0"))
+    
+    @property
+    def grand_total(self):
+        total = self.subtotal + (self.tax or 0) - (self.discount or 0)
+        return total if total > 0 else Decimal("0")
+    
+    @property
+    def paid_amount(self):
+        return sum((p.amount for p in self.payments.all()), Decimal("0"))
+    
+    @property
+    def due_amount(self):
+        due = self.grand_total - self.paid_amount
+        return due if due > 0 else Decimal("0")
+
+class BillingInvoiceItem(models.Model):
+    invoice = models.ForeignKey(BillingInvoice, on_delete=models.CASCADE, related_name="items")
+    description = models.CharField(max_length=200)
+    qty = models.DecimalField(max_digits=10, decimal_places=2, default=1)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    #optional traceability
+    lab_test_type = models.ForeignKey("LabTestType", on_delete=models.SET_NULL, null=True, blank=True)
+    ward = models.ForeignKey("Ward", on_delete=models.SET_NULL, null=True, blank=True)
+    bed = models.ForeignKey("Bed", on_delete=models.SET_NULL, null=True, blank=True)
+
+    @property
+    def line_total(self):
+        return(self.qty or 0) * (self.unit_price or 0)
+    def __str__(self):
+        return self.description
+    
+class BillingPayment(models.Model):
+    class Method(models.TextChoices):
+        CASH = "CASH", "Cash"
+        CARD = "CARD", "Card"
+        ESEWA = "ESEWA", "Esewa"
+        KHALTI = "KHALTI", "Khalti"
+        BANK = "BANK", "Bank Transfer"
+
+    invoice = models.ForeignKey(BillingInvoice, on_delete=models.CASCADE, related_name="payments")
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    method = models.CharField(max_length=10, choices=Method.choices, default=Method.CASH)
+    received_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="received_payments")
+    received_at = models.DateTimeField(auto_now_add=True)
+    note = models.CharField(max_length=200, blank=True, default="")
+
+    def __str__(self):
+        return f"{self.invoice.invoice_no} - {self.amount}"
+

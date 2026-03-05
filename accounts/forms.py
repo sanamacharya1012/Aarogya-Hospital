@@ -1,7 +1,10 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import get_user_model
-from .models import Patient, Admission, Bed, Appointment, EMR, Vitals, PrescriptionItem, Specialization, LabOrder, LabOrderItem, LabTestType
+from .models import (
+    Patient, Admission, Bed, Appointment, EMR, Vitals, PrescriptionItem, Specialization,
+    LabOrder, LabOrderItem, LabTestType, BillingPayment, BillingInvoice
+)
 from django.forms import inlineformset_factory
 
 
@@ -219,3 +222,13 @@ class LabTestTypeForm(forms.ModelForm):
         widgets = {
             "normal_range": forms.TextInput(attrs={"placeholder": "e.g. 3.5-5.5 or  >= 10 or  <= 200"}),
         }
+
+class PaymentForm(forms.ModelForm):
+    class Meta:
+        model = BillingPayment
+        fields = ["amount", "method", "note"]
+
+class InvoiceAdjustmentForm(forms.ModelForm):
+    class Meta:
+        model = BillingInvoice
+        fields = ["discount", "tax"]

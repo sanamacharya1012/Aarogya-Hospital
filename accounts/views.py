@@ -5,12 +5,20 @@ from django.views.decorators.http import require_POST
 from django.shortcuts import redirect, render, get_object_or_404
 from django.utils import timezone 
 from .utils import is_abnormal_value
+from .billing_utils import calc_ipd_days, opd_appointment_fee
 from datetime import date
 
 from .decorators import roles_required
-from .forms import CreateUserForm, LoginForm, PatientForm, AdmissionForm, AppointmentForm, EMRForm, VitalsForm, PrescriptionFormSet, AssignDoctorForm, Specialization, UserUpdateForm, LabOrderForm, LabOrderItemFormSet, LabResultFormSet, LabTestTypeForm
+from .forms import (
+    CreateUserForm, LoginForm, PatientForm, AdmissionForm, AppointmentForm,
+    EMRForm, VitalsForm, PrescriptionFormSet, AssignDoctorForm, Specialization, UserUpdateForm, 
+    LabOrderForm, LabOrderItemFormSet, LabResultFormSet, LabTestTypeForm, PaymentForm, InvoiceAdjustmentForm
+)
 
-from .models import  Patient, Admission, Bed, Appointment, EMR, Department, LabOrder, LabTestType
+from .models import  (
+    Patient, Admission, Bed, Appointment, EMR, Department, LabOrder, LabTestType, BillingInvoice, BillingInvoiceItem, BillingPayment, 
+    WardTariff
+)
 from django.db import transaction
 from django.db.models import Q
 from django.db.models import Count
@@ -1055,3 +1063,32 @@ def lab_order_pdf_view(request, order_id):
     p.showPage()
     p.save()
     return response
+
+@login_required
+@roles_required("ADMIN", "CASHIER", "ACCOUNTANT")
+def invoice_list_view(request):
+    q = (request.GET.get("q") or "").strip()
+    status = (request.GET.get("status") or "").strip()
+    ptype = (request.GET.get("ptype") or "").strip()
+
+    qs = BillingInvoice.objects.select_related("patient").order_by("-id")
+
+    if q:
+        qs = qs.filter(
+            Q(invoice_no__icontains=q) |
+            Q(patient__patient_id__icontains=q) |
+            Q(patient__full_name__icontains=q)
+        )
+    if status:
+        qs = qs.filter(status=status)
+    if ptype:
+        qs = qs.filter(patient_type=ptype)
+
+    return render(request, "accounts/invoice_list.html", {
+        "invoices": qs,
+        "q": q,
+        "status": status,
+        "ptype": ptype,
+        "status_choices": BillingInvoice.Status.choices,
+        "ptype_choices": BillingInvoice.PatientType.choices,
+    })

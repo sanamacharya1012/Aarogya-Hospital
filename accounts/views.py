@@ -7,6 +7,7 @@ from django.utils import timezone
 from .utils import is_abnormal_value
 from .billing_utils import calc_ipd_days, opd_appointment_fee
 from datetime import date
+from decimal import Decimal
 
 from .decorators import roles_required
 from .forms import (
@@ -427,21 +428,27 @@ def assign_doctor_view(request, patient_id):
 def discharge_patient_view(request, admission_id):
     admission = get_object_or_404(Admission, id=admission_id)
 
+    # already discharged
     if admission.status == Admission.Status.DISCHARGED:
         messages.info(request, "Already Discharged")
         return redirect('patient_detail', patient_id=admission.patient.patient_id)
     
-    if  not admission.billing_cleared:
+    # check invoice due amount
+    invoice = BillingInvoice.objects.filter(admission=admission).order_by("-id").first()
+
+    if invoice  and invoice.due_amount > 0:
         messages.error(request, "Cannot discharge. Billing not cleared.")
         return redirect('patient_detail', patient_id=admission.patient.patient_id)
     
     if request.method == "POST":
         with transaction.atomic():
+           # Free the bed 
             if admission.bed:
                 bed = Bed.objects.select_for_update().get(id=admission.bed_id)
                 bed.status = Bed.Status.AVAILABLE
                 bed.save()
-
+                
+        # Mark admission discharged
         admission.status = Admission.Status.DISCHARGED
         admission.discharged_at = timezone.now()
         admission.save()
@@ -1092,3 +1099,271 @@ def invoice_list_view(request):
         "status_choices": BillingInvoice.Status.choices,
         "ptype_choices": BillingInvoice.PatientType.choices,
     })
+
+@login_required
+@roles_required("ADMIN", "CASHIER", "ACCOUNTANT")
+def invoice_detail_view(request, invoice_id):
+    inv = get_object_or_404(BillingInvoice.objects.select_related("patient"), id=invoice_id)
+
+    adjust_form = InvoiceAdjustmentForm(request.POST or None, instance=inv)
+
+    if request.method == "POST":
+        # only admin/accountact should adjust
+        if request.user.role not in ["ADMIN", "ACCOUNTANT"]:
+            messages.error(request, "Only Admin/accountant can update tax/discount")
+            return redirect("invoice_detail", invoice_id=inv.id)
+        
+        if adjust_form.is_valid():
+            adjust_form.save()
+            # update status
+            _update_invoice_status(inv)
+            messages.success(request, "Invoice updated")
+            return redirect("invoice_detail", invoice_id=inv.id)
+        messages.error(request, "fix errors below")
+
+    return render(request,"accounts/invoice_detail.html", {"inv": inv, "adjust_form": adjust_form})
+
+def _update_invoice_status(inv: BillingInvoice):
+    if inv.status == BillingInvoice.Status.CANCELLED:
+        return
+    due = inv.due_amount
+    if due <= 0:
+        inv.staus = BillingInvoice.Status.PAID
+    elif inv.paid_amount > 0:
+        inv.status = BillingInvoice.Status.PARTIAL
+    else:
+        inv.status = BillingInvoice.Status.DRAFT
+    inv.save(update_fields=["status"])
+
+
+@login_required
+@roles_required("ADMIN", "CASHIER")
+def payment_add_view(request, invoice_id):
+    inv = get_object_or_404(BillingInvoice, id=invoice_id)
+    form = PaymentForm(request.POST or None)
+
+    if request.method == "POST":
+        if form.is_valid():
+            pay = form.save(commit=False)
+            pay.invoice = inv
+            pay.received_bg= request.user
+            pay.save()
+
+            _update_invoice_status(inv)
+
+            # if IPD invoice paid -> mark admission billing cleared
+            if inv.admission and inv.status == BillingInvoice.Status.PAID:
+                inv.admission.billing_cleared = True
+                inv.admission.save(update_fields=["billing_cleared"])
+
+            messages.success(request, "Payemnt received.")
+            return redirect("invoice_detail", invoice_id=inv.id)
+        messages.error(request, "Fix errors below.")
+    
+    return render(request, "accounts/payment_form.html", {"inv": inv, "form": form})
+
+@login_required
+@roles_required("ADMIN", "RECEPTION", "CASHIER")
+def invoice_create_for_appointment_view(request, appointment_id):
+    appt = get_object_or_404(Appointment.objects.select_related("patient", "doctor"), id=appointment_id)
+
+    #avoid duplicate
+    existing = BillingInvoice.objects.filter(appointment=appt).first()
+    if existing:
+        return redirect("invoice_detail", invoice_id=existing.id)
+    
+    inv = BillingInvoice.objects.create(
+        patient=appt.patient,
+        patient_type=BillingInvoice.PatientType.OPD,
+        appointment=appt,
+        created_by=request.user
+    )
+
+    BillingInvoiceItem.objects.create(
+        invoice=inv,
+        description=f"Appointment Fee({appt.doctor.full_name if appt.doctor else 'Doctor'})",
+        qty=Decimal("1"),
+        unit_price=opd_appointment_fee()
+    )
+
+    _update_invoice_status(inv)
+    messages.success(request, "Appointment invoice created.")
+    return redirect("invoice_detail", invoice_id=inv.id)
+
+@login_required
+@roles_required("ADMIN", "RECEPTION", "CASHIER")
+def invoice_create_for_lab_view(request, lab_order_id):
+    lo = get_object_or_404(LabOrder.objects.select_related("patient"), id=lab_order_id)
+
+    existing = BillingInvoice.objects.filter(lab_order=lo).first()
+    if existing:
+        return redirect("invoice_detail", invoice_id=existing.id)
+
+    inv = BillingInvoice.objects.create(
+        patient=lo.patient,
+        patient_type=BillingInvoice.PatientType.OPD,
+        lab_order=lo,
+        created_by=request.user
+    )
+
+    for it in lo.items.select_related("test_type").all():
+        price = it.test_type.price or Decimal("0")
+        BillingInvoiceItem.objects.create(
+            invoice=inv,
+            description=f"Lab Test: {it.test_type.name}",
+            qty=Decimal("1"),
+            unit_price=price,
+            lab_test_type=it.test_type
+        )
+
+    _update_invoice_status(inv)
+    messages.success(request, "Lab invoice created.")
+    return redirect("invoice_detail", invoice_id=inv.id)
+
+@login_required
+@roles_required("ADMIN", "RECEPTION", "CASHIER")
+def invoice_create_for_admission_view(request, admission_id):
+    adm = get_object_or_404(
+        Admission.objects.select_related("patient", "ward", "bed"),
+        id=admission_id
+    )
+
+    existing = BillingInvoice.objects.filter(admission=adm).first()
+    if existing:
+        return redirect("invoice_detail", invoice_id=existing.id)
+    
+    inv = BillingInvoice.objects.create(
+        patient=adm.patient,
+        patient_type=BillingInvoice.PatientType.IPD,
+        admission=adm,
+        created_by=request.user
+    )
+
+    tariff, _ = WardTariff.objects.get_or_create(ward=adm.ward)
+
+    days = calc_ipd_days(adm.admitted_at, adm.discharged_at)
+
+    # 1) Basebed/day charge
+    BillingInvoiceItem.objects.create(
+        invoice=inv,
+        description=f"Ward Bed Charge ({adm.ward})",
+        qty=Decimal(str(days)),
+        unit_price=tariff.bed_charge_per_day,
+        bed=adm.bed
+    )
+
+    # 2) ICU extra/day
+    if adm.is_icu:
+        BillingInvoiceItem.objects.create(
+            invoice=inv,
+            description="ICU EXTRA CHARGE",
+            qty=Decimal(str(days)),
+            unit_price=tariff.icu_extra_per_day,
+            ward=adm.ward,
+            bed=adm.bed
+        )
+    
+    # 3) Ventilator extra/day
+    if adm.on_ventilator:
+        BillingInvoiceItem.objects.create(
+            invoice=inv,
+            description="Ventoilator Charge",
+            qty=Decimal(str(days)),
+            unit_price=tariff.ventilator_extra_per_day,
+            ward=adm.ward,
+            bed=adm.bed
+        )
+
+    _update_invoice_status(inv)
+    messages.success(request, "IPD invoice created.")
+    return redirect("invoice_detail", invoice_id=inv.id)
+
+        
+@login_required
+@roles_required("ADMIN", "CASHIER", "ACCOUNTANT")
+def invoice_pdf_view(request, invoice_id):
+    inv = get_object_or_404(BillingInvoice.objects.select_related("patient"), id=invoice_id)
+
+    response = HttpResponse(content_type="application/pfd")
+    response["COntent-Dispostion"] = f'inline; filename="{inv.invoice_no}.pdf"'
+
+    p= canvas.Canvas(response, pagesize=A4)
+    width, height = A4
+    y = height -2 * cm
+
+    p.setFont("Helvetica-Bold", 14)
+    p.drawString(2 * cm , y, "HMS Invoice")
+    y -= 0.8 * cm
+
+    p.setFont("Helvetica", 10)
+    p.drawString(2 * cm, y, f"Invoice: {inv.invoice_no}  Status: {inv.status}")
+    y -= 0.6 * cm
+    p.drawString(2 * cm, y, f"Patient: {inv.patient.full_name}  ({inv.patient.patient_id})")
+    y -= 0.6 * cm
+    p.drawString(2 * cm, y, f"Date: {inv.created_at.strftime('%Y-%m-%d %H:%i')}")
+    y -= 1.0 * cm
+
+    #Table Header
+
+    p.setFont("Helvetica-Bold", 10)
+    p.drawString(2 * cm, y, "Description")
+    p.drawString(12 * cm, y, "Qty")
+    p.drawString(14 * cm, y, "Rate")
+    p.drawString(17 * cm, y, "Total")
+    y -= 0.4 * cm
+    p.line(2 * cm, y, width -2 * cm, y)
+    y -= 0.6 * cm
+
+    p.setFont("Helvetica-Bold", 10)
+    for it in inv.item.all():
+        if y < 2.5 * cm:
+            p.showpage()
+            y = height - 2 * cm
+            p.setFont("Helvetica-Bold", 10)
+            p.drawString(2 * cm, y, "Description")
+            p.drawString(12 * cm, y, "Qty")
+            p.drawString(14 * cm, y, "Rate")
+            p.drawString(17 * cm, y, "Total")
+            y -= 0.4 * cm
+            p.line(2 * cm, y, width -2 * cm, y)
+            y -= 0.6 * cm
+            p.setFont("Helvetica", 10)
+
+        p.drawString(2 * cm,y, (it.description or "")[:55])
+        p.drawRightString(13.5 * cm, y, f"{it.qty}")
+        p.drawRightString(16.5 * cm, y, f"{it.unit_price}")
+        p.drawRightString(19.0 * cm, y, f"{it.line_total}")
+        y -= 0.55 * cm
+    
+    y -= 0.2 * cm
+    p.line(2 * cm, y, width -2 * cm, y)
+    y -= 0.7 * cm
+
+    p.setFont("Helvetica-Bold", 10)
+    p.drawRightString(18.0 * cm, y, "Subtotal:")
+    p.drawRightString(19.0 * cm, y, f"{inv.subtotal}")
+    y -= 0.5 * cm
+
+    p.setFont("Helvetica-Bold", 10)
+    p.drawRightString(18.0 * cm, y, "Tax:")
+    p.drawRightString(19.0 * cm, y, f"{inv.tax}")
+    y -= 0.5 * cm
+    p.drawRightString(18.0 * cm, y, "Discount:")
+    p.drawRightString(19.0 * cm, y, f"{inv.discount}")
+    y -= 0.6 * cm
+    
+    p.setFont("Helvetica-Bold", 10)
+    p.drawRightString(18.0 * cm, y, "Grand Total:")
+    p.drawRightString(19.0 * cm, y, f"{inv.grand_total}")
+    y -= 0.8 * cm
+
+    p.setFont("Helvetica-Bold", 10)
+    p.drawRightString(18.0 * cm, y, "Paid:")
+    p.drawRightString(19.0 * cm, y, f"{inv.paid_amount}")
+    y -= 0.5 * cm
+    p.drawRightString(18.0 * cm, y, "Due:")
+    p.drawRightString(19.0 * cm, y, f"{inv.due_amount}")
+
+    p.showPage()
+    p.save()
+    return response

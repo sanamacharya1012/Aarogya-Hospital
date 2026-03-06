@@ -6,6 +6,10 @@
         <div class="tex-muted">Patient: {{ order.patient.full_name }} ({{ order.patient.patient_id }})</div>
     </div>
     <a class="btn btn-outline-secondary" href="{% url 'lab_order_list' %}">Back</a>
+    <a class="btn btn-sm btn-outline-success"
+       href="{% url 'invoice_create_for_lab' order.id %}">
+       Create Bill
+    </a>
 </div>
 
 <div class="card p-3 mb-3">

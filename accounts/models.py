@@ -302,7 +302,7 @@ class BillingInvoice(models.Model):
         PAID = "PAID", "Paid"
         CANCELLED = "CANCELLED", "Cancelled"
 
-    invoice_no = models.CharField(max_length=30, unique=True, blank=True)
+    invoice_no = models.CharField(max_length=30, unique=True, blank=True, null=True)
 
     patient = models.ForeignKey("Patient", on_delete=models.CASCADE, related_name="invoices")
     patient_type = models.CharField(max_length=10, choices=PatientType.choices, default=PatientType.OPD)
@@ -319,16 +319,22 @@ class BillingInvoice(models.Model):
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="created_invoices")
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def savae(self, *args, **kwargs):
-        if not self.invoice_no:
-            last = BillingInvoice.objects.order_by("-id").first()
-            next_id = (last.id + 1) if last else 1
-            self.invoice_no = f"HMS_INV-{next_id:04d}"
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+
+    # first save normally to get primary key
+        if is_new and not self.invoice_no:
+            super().save(*args, **kwargs)
+            self.invoice_no = f"HMS-INV-{self.pk:04d}"
+            BillingInvoice.objects.filter(pk=self.pk).update(invoice_no=self.invoice_no)
+            self.invoice_no = f"HMS-INV-{self.pk:04d}"
+            return
+
         super().save(*args, **kwargs)
 
     @property
     def subtotal(self):
-        return sum((i.line_total for i in self.item.all()), Decimal("0"))
+        return sum((i.line_total for i in self.items.all()), Decimal("0"))
     
     @property
     def grand_total(self):

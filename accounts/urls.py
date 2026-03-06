@@ -1,5 +1,14 @@
 from django.urls import path, include
-from .views import login_view, logout_view, dashboard_view, create_user_view, patient_detail_view, patient_list_view, patient_create_view, admit_patient_view, discharge_patient_view, available_bed_api, appointment_create_view, appointment_list_view, appointment_complete_view, appointment_cancel_view, emr_create_view, emr_update_view, emr_search_view, emr_pdf_view, assign_doctor_view, specializations_api, user_list_view, user_detail_view, user_toggle_active_view, lab_order_list_view, lab_order_detail_view, lab_order_create_view, lab_result_entry_view, lab_order_status_view, lab_testtype_list_view, lab_testtype_create_view, lab_testtype_delete_view, lab_testtype_edit_view, lab_order_pdf_view
+from .views import (
+    login_view, logout_view, dashboard_view, create_user_view, patient_detail_view, patient_list_view, patient_create_view, 
+    admit_patient_view, discharge_patient_view, available_bed_api, appointment_create_view, appointment_list_view, 
+    appointment_complete_view, appointment_cancel_view, emr_create_view, emr_update_view, emr_search_view, emr_pdf_view, 
+    assign_doctor_view, specializations_api, user_list_view, user_detail_view, user_toggle_active_view, lab_order_list_view, 
+    lab_order_detail_view, lab_order_create_view, lab_result_entry_view, lab_order_status_view, lab_testtype_list_view, 
+    lab_testtype_create_view, lab_testtype_delete_view, lab_testtype_edit_view, lab_order_pdf_view, invoice_list_view,
+    invoice_detail_view, payment_add_view, invoice_pdf_view, invoice_create_for_appointment_view, invoice_create_for_lab_view,
+    invoice_create_for_admission_view
+)
 urlpatterns = [
     path('login/', login_view, name='login'),
     path('logout/', logout_view, name='logout'),
@@ -34,4 +43,11 @@ urlpatterns = [
     path("lab/tests/<int:test_id>/edit/", lab_testtype_edit_view, name="lab_testtype_edit"),
     path("lab/tests/<int:test_id>/delete/", lab_testtype_delete_view, name="lab_testtype_delete"),
     path("lab/orders/<int:order_id>/pdf/", lab_order_pdf_view, name="lab_order_pdf"),
+    path("billing/invoices/", invoice_list_view, name="invoice_list"),
+    path("billing/invoices/<int:invoice_id>/", invoice_detail_view, name="invoice_detail"),
+    path("billing/invoices/<int:invoice_id>/pay/", payment_add_view, name="invoice_pay"),
+    path("billing/invoices/<int:invoice_id>/pdf/", invoice_pdf_view, name="invoice_pdf"),
+    path("billing/appointment/<int:appointment_id>/create/", invoice_create_for_appointment_view, name="invoice_create_for_appointment"),
+    path("billing/lab/<int:lab_order_id>/create/", invoice_create_for_lab_view, name="invoice_create_for_lab"),
+    path("billing/admission/<int:admission_id>/create/", invoice_create_for_admission_view, name="invoice_create_for_admission"),
 ]

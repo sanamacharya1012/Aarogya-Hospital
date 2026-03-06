@@ -48,6 +48,14 @@
           href="{% url 'lab_testtype_list' %}">
           🧬 <span>Lab Test Types</span>
     </a>
+    {% if user.role == "ADMIN" %}
+      <div class="hms-menu-title mt-3">Billing</div>
+
+      <a class="hms-link {% if '/billing/invoices/' in request.path %}active{% endif %}"
+            href="{% url 'invoice_list' %}">
+            🧾 <span>Invoice Details</span>
+      </a>
+    {% endif %}
 
     <a class="hms-link" href="{% url 'logout' %}">
       🚪 <span>Logout</span>

@@ -67,6 +67,23 @@
                             <a class="btn btn-sm btn-outline-danger" href="{% url 'appointment_cancel' a.id %}">Cancel</a>
                         {% endif %}
                     </td>
+                    <!-- Billing column -->
+                     <td>
+                        {% if a.invoices.first %}
+                            <a class="btn btn-sm btn-outline-primary"
+                                href="{% url 'invoice_detail' a.invoices.first.id %}">
+                                View Bill
+                            </a>
+                        {% else %}
+                            {% if user.role == "ADMIN" or user.role == "RECEPTION" or user.role == "CASHIER" %}
+                                <a class="btn btn-sm btn-outline-success"
+                                    href="{% url 'invoice_create_for_appointment' a.id %}">
+                                    Create Bill
+                                </a>
+                            {% endif %}
+                        {% endif %}
+                    </td>
+
                 </tr>
                 {% empty %}
                 <tr>

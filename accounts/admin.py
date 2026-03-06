@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
-from .models import Bed, Department, Patient, Admission, Ward, Specialization, LabTestType, LabOrder, LabOrderItem
+from .models import Bed, Department, Patient, Admission, Ward, Specialization, LabTestType, LabOrder, LabOrderItem, WardTariff
 
 User = get_user_model()
 # Register your models here.
@@ -38,3 +38,7 @@ class LabOrderAdmin(admin.ModelAdmin):
     search_fields = ("patient__patient_id", "patient__full_name")
     ordering = ("-created_at",)
     inlines = [LabOrderItemInline]
+
+@admin.register(WardTariff)
+class WardTariffAmdin(admin.ModelAdmin):
+    list_display = ("ward", "bed_charge_per_day", "icu_extra_per_day", "ventilator_extra_per_day")

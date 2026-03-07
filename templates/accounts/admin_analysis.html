@@ -1,0 +1,709 @@
+{% extends "base.html" %}
+{% block content %}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+  .dash-header{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:16px;
+  }
+  .dash-title{
+    margin:0;
+    font-weight:900;
+    letter-spacing:.2px;
+  }
+  .dash-sub{
+    margin:4px 0 0;
+    color:#64748b;
+    font-size:13px;
+  }
+
+  .section-title{
+    font-size:13px;
+    font-weight:900;
+    letter-spacing:.8px;
+    text-transform:uppercase;
+    color:#64748b;
+    margin:18px 0 10px;
+  }
+
+  .kpi-card{
+    border:0;
+    border-radius:16px;
+    box-shadow:0 10px 25px rgba(16,24,40,.07);
+    transition:.2s ease;
+    background:#fff;
+    height:100%;
+  }
+  .kpi-card:hover{
+    transform:translateY(-2px);
+    box-shadow:0 18px 40px rgba(16,24,40,.10);
+  }
+  .kpi-body{
+    padding:18px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+  }
+  .kpi-label{
+    font-size:12px;
+    text-transform:uppercase;
+    font-weight:800;
+    letter-spacing:.6px;
+    color:#64748b;
+    margin-bottom:6px;
+  }
+  .kpi-value{
+    font-size:38px;
+    font-weight:900;
+    line-height:1;
+    color:#0f172a;
+  }
+  .kpi-sub{
+    margin-top:8px;
+    font-size:12px;
+    color:#64748b;
+    font-weight:600;
+  }
+  .kpi-icon{
+    width:44px;
+    height:44px;
+    border-radius:14px;
+    background:#f1f5f9;
+    border:1px solid #e2e8f0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:20px;
+    flex-shrink:0;
+  }
+
+  .mini-card{
+    border:0;
+    border-radius:16px;
+    box-shadow:0 10px 25px rgba(16,24,40,.07);
+    background:#fff;
+    text-align:center;
+    height:100%;
+  }
+  .mini-card .mini-body{
+    padding:18px 14px;
+  }
+  .mini-label{
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.6px;
+    color:#64748b;
+    font-weight:800;
+    margin-bottom:6px;
+  }
+  .mini-value{
+    font-size:30px;
+    font-weight:900;
+    line-height:1;
+  }
+
+  .panel-card{
+    border:0;
+    border-radius:16px;
+    box-shadow:0 10px 25px rgba(16,24,40,.07);
+    background:#fff;
+    overflow:hidden;
+  }
+  .panel-head{
+    padding:14px 16px;
+    border-bottom:1px solid #eef2f7;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+  }
+  .panel-head h5{
+    margin:0;
+    font-weight:900;
+    font-size:14px;
+    letter-spacing:.2px;
+  }
+  .panel-head .small{
+    color:#64748b;
+    font-size:12px;
+  }
+
+  .summary-line{
+    font-size:12px;
+    color:#64748b;
+    font-weight:700;
+    margin-top:8px;
+  }
+
+  .money-list{
+    padding:16px;
+  }
+  .money-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:8px 0;
+    border-bottom:1px solid #eef2f7;
+    font-size:13px;
+  }
+  .money-row:last-child{
+    border-bottom:0;
+  }
+  .money-row span:last-child{
+    font-weight:800;
+    color:#0f172a;
+  }
+
+  .spec-box{
+    border:1px solid #e2e8f0;
+    border-radius:14px;
+    padding:14px;
+    text-align:center;
+    background:#fff;
+    height:100%;
+  }
+  .spec-label{
+    font-size:12px;
+    color:#64748b;
+    font-weight:700;
+    margin-bottom:6px;
+  }
+  .spec-value{
+    font-size:28px;
+    font-weight:900;
+    line-height:1;
+  }
+
+  .table thead th{
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.7px;
+    color:#64748b;
+    font-weight:900;
+  }
+
+  .badge-soft{
+    background:#eef2ff;
+    color:#1d4ed8;
+    border:1px solid #dbeafe;
+    font-weight:800;
+    border-radius:999px;
+    padding:6px 10px;
+    font-size:12px;
+    white-space:nowrap;
+  }
+
+  .chart-wrap{
+    padding:18px;
+  }
+</style>
+
+<div class="dash-header">
+  <div>
+    <h3 class="dash-title">Admin Analysis</h3>
+    <p class="dash-sub">Overall hospital performance overview</p>
+  </div>
+  <a class="btn btn-outline-dark" href="{% url 'admin_analysis_pdf' %}">Download PDF</a>
+</div>
+
+<div class="section-title">Core Overview</div>
+<div class="row g-4 mb-1">
+
+  <div class="col-md-3">
+    <div class="card kpi-card">
+      <div class="kpi-body">
+        <div>
+          <div class="kpi-label">Total Patients</div>
+          <div class="kpi-value text-primary">{{ total_patients }}</div>
+          <div class="kpi-sub">New today: {{ new_patients_today }}</div>
+        </div>
+        <div class="kpi-icon">👥</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3">
+    <div class="card kpi-card">
+      <div class="kpi-body">
+        <div>
+          <div class="kpi-label">Admitted Patients</div>
+          <div class="kpi-value text-success">{{ admitted_count }}</div>
+          <div class="kpi-sub">Discharged: {{ discharged_count }}</div>
+        </div>
+        <div class="kpi-icon">🏥</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3">
+    <div class="card kpi-card">
+      <div class="kpi-body">
+        <div>
+          <div class="kpi-label">Appointments Today</div>
+          <div class="kpi-value text-dark">{{ appointments_today }}</div>
+          <div class="kpi-sub">Scheduled: {{ scheduled_appointments }}</div>
+        </div>
+        <div class="kpi-icon">📅</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3">
+    <div class="card kpi-card">
+      <div class="kpi-body">
+        <div>
+          <div class="kpi-label">Revenue Today</div>
+          <div class="kpi-value text-success">{{ revenue_today }}</div>
+          <div class="kpi-sub">Total revenue: {{ total_revenue }}</div>
+        </div>
+        <div class="kpi-icon">💰</div>
+      </div>
+    </div>
+  </div>
+  <div class="section-title">Revenue & Billing Analytics</div>
+
+<div class="row g-4 mb-4">
+
+  <div class="col-lg-6">
+    <div class="panel-card">
+      <div class="panel-head">
+        <div>
+          <h5>Monthly Revenue</h5>
+          <div class="small">Last 6 months revenue performance</div>
+        </div>
+        <span class="badge-soft">6 Months</span>
+      </div>
+
+      <div class="chart-wrap">
+        <canvas id="monthlyRevenueChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="panel-card">
+      <div class="panel-head">
+        <div>
+          <h5>OPD vs IPD Invoices</h5>
+          <div class="small">Billing distribution</div>
+        </div>
+        <span class="badge-soft">Invoices</span>
+      </div>
+
+      <div class="chart-wrap">
+        <canvas id="invoicePieChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</div>
+
+<div class="section-title">Staff & Beds</div>
+<div class="row g-4 mb-1">
+
+  <div class="col-md-2">
+    <div class="card mini-card">
+      <div class="mini-body">
+        <div class="mini-label">Doctors</div>
+        <div class="mini-value text-primary">{{ total_doctors }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-2">
+    <div class="card mini-card">
+      <div class="mini-body">
+        <div class="mini-label">Nurses</div>
+        <div class="mini-value text-success">{{ total_nurses }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-2">
+    <div class="card mini-card">
+      <div class="mini-body">
+        <div class="mini-label">Cashiers</div>
+        <div class="mini-value text-dark">{{ total_cashiers }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-2">
+    <div class="card mini-card">
+      <div class="mini-body">
+        <div class="mini-label">Accountants</div>
+        <div class="mini-value text-dark">{{ total_accountants }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-2">
+    <div class="card mini-card">
+      <div class="mini-body">
+        <div class="mini-label">Available Beds</div>
+        <div class="mini-value text-success">{{ available_beds }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-2">
+    <div class="card mini-card">
+      <div class="mini-body">
+        <div class="mini-label">Occupied Beds</div>
+        <div class="mini-value text-danger">{{ occupied_beds }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3">
+  <div class="card kpi-card">
+    <div class="kpi-body">
+      <div>
+        <div class="kpi-label">Bed Occupancy</div>
+        <div class="kpi-value text-danger">
+          {{ bed_occupancy_percentage }}%
+        </div>
+        <div class="kpi-sub">Occupied vs total beds</div>
+      </div>
+
+      <div class="kpi-icon">
+        🛏️
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<div class="section-title">Lab & Billing</div>
+<div class="row g-4 mb-1">
+
+  <div class="col-lg-3">
+    <div class="card kpi-card">
+      <div class="kpi-body">
+        <div>
+          <div class="kpi-label">Lab Orders</div>
+          <div class="kpi-value text-primary">{{ lab_total }}</div>
+          <div class="summary-line">
+            Requested: {{ lab_requested }} |
+            In Progress: {{ lab_in_progress }} |
+            Completed: {{ lab_completed }}
+          </div>
+        </div>
+        <div class="kpi-icon">🧪</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-3">
+    <div class="card kpi-card">
+      <div class="kpi-body">
+        <div>
+          <div class="kpi-label">Invoices</div>
+          <div class="kpi-value text-dark">{{ total_invoices }}</div>
+          <div class="summary-line">
+            Paid: {{ paid_invoices }} |
+            Partial: {{ partial_invoices }} |
+            Draft: {{ draft_invoices }}
+          </div>
+        </div>
+        <div class="kpi-icon">🧾</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-3">
+    <div class="card kpi-card">
+      <div class="kpi-body">
+        <div>
+          <div class="kpi-label">Total Due</div>
+          <div class="kpi-value text-danger">{{ total_due }}</div>
+          <div class="kpi-sub">Outstanding hospital receivables</div>
+        </div>
+        <div class="kpi-icon">⚠️</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-3">
+    <div class="panel-card h-100">
+      <div class="panel-head">
+        <div>
+          <h5>Payment Methods</h5>
+          <div class="small">Daily collection split</div>
+        </div>
+      </div>
+      <div class="money-list">
+        <div class="money-row"><span>Cash</span><span>{{ cash_total }}</span></div>
+        <div class="money-row"><span>Card</span><span>{{ card_total }}</span></div>
+        <div class="money-row"><span>eSewa</span><span>{{ esewa_total }}</span></div>
+        <div class="money-row"><span>Khalti</span><span>{{ khalti_total }}</span></div>
+        <div class="money-row"><span>Bank</span><span>{{ bank_total }}</span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="section-title">Trends</div>
+<div class="row g-4 mb-1">
+  <div class="col-lg-6">
+    <div class="panel-card">
+      <div class="panel-head">
+        <div>
+          <h5>New Patients (Last 7 Days)</h5>
+          <div class="small">Registration activity trend</div>
+        </div>
+        <span class="badge-soft">7 Days</span>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="patientChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="panel-card">
+      <div class="panel-head">
+        <div>
+          <h5>Revenue (Last 7 Days)</h5>
+          <div class="small">Billing performance trend</div>
+        </div>
+        <span class="badge-soft">7 Days</span>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="revenueChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section-title">Doctors by Specialization</div>
+<div class="panel-card mb-4">
+  <div class="panel-head">
+    <div>
+      <h5>Specialization Summary</h5>
+      <div class="small">Distribution of medical staff</div>
+    </div>
+  </div>
+
+  <div class="p-3">
+    <div class="row g-3">
+      {% for d in doctor_by_specialization %}
+        <div class="col-md-3">
+          <div class="spec-box">
+            <div class="spec-label">{{ d.specialization__name|default:"No Spec" }}</div>
+            <div class="spec-value">{{ d.total }}</div>
+          </div>
+        </div>
+      {% empty %}
+        <div class="col-12 text-muted">No specialization data available.</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+<div class="section-title">Performance Insights</div>
+
+<div class="row g-4 mb-4">
+
+  <!-- Top Doctors -->
+  <div class="col-lg-6">
+    <div class="panel-card">
+
+      <div class="panel-head">
+        <div>
+          <h5>Top Doctors by Appointments</h5>
+          <div class="small">Highest patient consultations</div>
+        </div>
+        <span class="badge-soft">Top 5</span>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Doctor</th>
+              <th>Total Appointments</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {% for d in top_doctors %}
+              <tr>
+                <td>{{ d.doctor__full_name|default:"-" }}</td>
+                <td class="fw-bold">{{ d.total }}</td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="2" class="text-center text-muted py-3">No data available</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- Top Lab Tests -->
+  <div class="col-lg-6">
+    <div class="panel-card">
+
+      <div class="panel-head">
+        <div>
+          <h5>Most Used Lab Tests</h5>
+          <div class="small">Frequently ordered diagnostics</div>
+        </div>
+        <span class="badge-soft">Top 5</span>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Test</th>
+              <th>Total Orders</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {% for t in top_lab_tests %}
+              <tr>
+                <td>{{ t.test_type__name|default:"-" }}</td>
+                <td class="fw-bold">{{ t.total }}</td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="2" class="text-center text-muted py-3">No data available</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<div class="panel-card">
+  <div class="panel-head">
+    <div>
+      <h5>Recent Invoices</h5>
+      <div class="small">Latest billing activity</div>
+    </div>
+    <a class="btn btn-sm btn-outline-primary" href="{% url 'invoice_list' %}">View All</a>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-hover mb-0 align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>Invoice</th>
+          <th>Patient</th>
+          <th>Status</th>
+          <th>Total</th>
+          <th>Due</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inv in recent_invoices %}
+          <tr>
+            <td>{{ inv.invoice_no }}</td>
+            <td>{{ inv.patient.patient_id }} • {{ inv.patient.full_name }}</td>
+            <td><span class="badge text-bg-secondary">{{ inv.status }}</span></td>
+            <td>{{ inv.grand_total }}</td>
+            <td class="{% if inv.due_amount > 0 %}text-danger fw-bold{% endif %}">
+              {{ inv.due_amount }}
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="5" class="text-center text-muted py-4">No invoices yet.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  const patientCtx = document.getElementById('patientChart');
+  new Chart(patientCtx, {
+    type: 'line',
+    data: {
+      labels: {{ patient_chart_labels|safe }},
+      datasets: [{
+        label: 'New Patients',
+        data: {{ patient_chart_values|safe }},
+        borderWidth: 2,
+        tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: true } }
+    }
+  });
+
+  const revenueCtx = document.getElementById('revenueChart');
+  new Chart(revenueCtx, {
+    type: 'bar',
+    data: {
+      labels: {{ revenue_chart_labels|safe }},
+      datasets: [{
+        label: 'Revenue',
+        data: {{ revenue_chart_values|safe }},
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: true } }
+    }
+  });
+
+  const monthlyRevenueCtx = document.getElementById('monthlyRevenueChart');
+  new Chart(monthlyRevenueCtx, {
+    type: 'bar',
+    data: {
+      labels: {{ monthly_labels|safe }},
+      datasets: [{
+        label: 'Monthly Revenue',
+        data: {{ monthly_values|safe }},
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: true } }
+    }
+  });
+
+  const invoicePieCtx = document.getElementById('invoicePieChart');
+  new Chart(invoicePieCtx, {
+    type: 'pie',
+    data: {
+      labels: ['OPD', 'IPD'],
+      datasets: [{
+        data: [{{ opd_invoice_count }}, {{ ipd_invoice_count }}]
+      }]
+    },
+    options: {
+      responsive: true
+    }
+  });
+</script>
+
+{% endblock %}

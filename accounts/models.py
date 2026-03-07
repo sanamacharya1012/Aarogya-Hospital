@@ -408,4 +408,74 @@ class BillingPayment(models.Model):
 
     def __str__(self):
         return f"{self.invoice.invoice_no} - {self.amount}"
+    
+class DoctorVisit(models.Model):
 
+    admission = models.ForeignKey(
+        Admission,
+        on_delete=models.CASCADE,
+        related_name="doctor_visits"
+    )
+
+    doctor = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE
+    )
+
+    visit_date = models.DateField(auto_now_add=True)
+
+    visit_charge = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=500
+    )
+
+    def __str__(self):
+        return f"{self.doctor.full_name} visit - {self.visit_date}"
+
+class Medicine(models.Model):
+
+    name = models.CharField(max_length=150)
+
+    price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2
+    )
+
+    stock = models.IntegerField(default=0)
+
+    def __str__(self):
+        return self.name
+    
+class MedicineUsage(models.Model):
+
+    admission = models.ForeignKey(
+        Admission,
+        on_delete=models.CASCADE,
+        related_name="medicine_usage"
+    )
+
+    medicine = models.ForeignKey(
+        Medicine,
+        on_delete=models.CASCADE
+    )
+
+    quantity = models.IntegerField()
+
+    def total(self):
+        return self.medicine.price * self.quantity
+
+class NursingCharge(models.Model):
+
+    admission = models.ForeignKey(
+        Admission,
+        on_delete=models.CASCADE
+    )
+
+    charge = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=300
+    )
+
+    date = models.DateField(auto_now_add=True)

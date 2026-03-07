@@ -7,7 +7,7 @@ from .views import (
     lab_order_detail_view, lab_order_create_view, lab_result_entry_view, lab_order_status_view, lab_testtype_list_view, 
     lab_testtype_create_view, lab_testtype_delete_view, lab_testtype_edit_view, lab_order_pdf_view, invoice_list_view,
     invoice_detail_view, payment_add_view, invoice_pdf_view, invoice_create_for_appointment_view, invoice_create_for_lab_view,
-    invoice_create_for_admission_view
+    invoice_create_for_admission_view, admin_analysis_view, admin_analysis_pdf_view
 )
 urlpatterns = [
     path('login/', login_view, name='login'),
@@ -50,4 +50,6 @@ urlpatterns = [
     path("billing/appointment/<int:appointment_id>/create/", invoice_create_for_appointment_view, name="invoice_create_for_appointment"),
     path("billing/lab/<int:lab_order_id>/create/", invoice_create_for_lab_view, name="invoice_create_for_lab"),
     path("billing/admission/<int:admission_id>/create/", invoice_create_for_admission_view, name="invoice_create_for_admission"),
+    path("admin-analysis/", admin_analysis_view, name="admin_analysis"),
+    path("admin-analysis/pdf/", admin_analysis_pdf_view, name="admin_analysis_pdf"),
 ]

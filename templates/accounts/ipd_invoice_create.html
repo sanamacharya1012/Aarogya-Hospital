@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card p-4 shadow-sm mb-4">
+    <h3 class="fw-bold mb-1">Create IPD Invoice</h3>
+    <div class="text-muted mb-3">
+        Patient: {{ adm.patient.full_name }} ({{ adm.patient.patient_id }})<br>
+        Ward: {{ adm.ward|default:"-" }} |
+        Bed: {{ adm.bed|default:"-" }} |
+        Stay Days: {{ billing.days }}
+    </div>
+
+    <div class="row g-3">
+        <div class="col-lg-8">
+            <div class="card p-3 shadow-sm">
+                <h5 class="fw-bold mb-2">IPD Billing Preview</h5>
+
+                <div>Stay Days: <strong id="stayDays">{{ billing.days }}</strong></div>
+                <div>Ward Charge: <strong id="wardCharge">{{ billing.ward_cost }}</strong></div>
+                <div>ICU Charge: <strong id="icuCharge">{{ billing.icu_cost }}</strong></div>
+                <div>Ventilator Charge: <strong id="ventCharge">{{ billing.ventilator_cost }}</strong></div>
+
+                <hr>
+
+                <div>Doctor Charges: <strong id="doctorTotal">0.00</strong></div>
+                <div>Nurse Charges: <strong id="nurseTotal">0.00</strong></div>
+                <div>Medicine Charges: <strong id="medicineTotal">0.00</strong></div>
+                <div>Extra Charges: <strong id="extraTotal">0.00</strong></div>
+
+                <hr>
+
+                <div class="fs-5">
+                    <strong>Total Bill: </strong>
+                    <strong id="finalTotal">{{ billing.total }}</strong>
+                </div>
+            </div>
+
+            <div class="small text-muted mt-2">
+                Doctor, nurse, medicine, and extra charges added below will be included in the final invoice total.
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card p-3 shadow-sm">
+                <h5 class="fw-bold mb-2">Admission Summary</h5>
+                <div><strong>Patient:</strong> {{ adm.patient.full_name }}</div>
+                <div><strong>Patient ID:</strong> {{ adm.patient.patient_id }}</div>
+                <div><strong>Admitted At:</strong> {{ adm.admitted_at|date:"Y-m-d H:i" }}</div>
+                <div><strong>Reason:</strong> {{ adm.reason|default:"-" }}</div>
+                <div><strong>ICU:</strong> {% if adm.is_icu %}Yes{% else %}No{% endif %}</div>
+                <div><strong>Ventilator:</strong> {% if adm.on_ventilator %}Yes{% else %}No{% endif %}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+
+    <div class="card p-3 mb-3">
+        <h5 class="fw-bold mb-2">Base Charges</h5>
+        <div class="form-check mb-2">
+            {{ base_form.apply_ward_charge }}
+            <label class="form-check-label" for="{{ base_form.apply_ward_charge.id_for_label }}">
+                Ward Charge
+            </label>
+        </div>
+        <div class="form-check mb-2">
+            {{ base_form.apply_icu_charge }}
+            <label class="form-check-label" for="{{ base_form.apply_icu_charge.id_for_label }}">
+                ICU Charge
+            </label>
+        </div>
+        <div class="form-check">
+            {{ base_form.apply_ventilator_charge }}
+            <label class="form-check-label" for="{{ base_form.apply_ventilator_charge.id_for_label }}">
+                Ventilator Charge
+            </label>
+        </div>
+    </div>
+
+    <div class="card p-3 mb-3">
+        <h5 class="fw-bold mb-2">Doctor Charges</h5>
+        {{ doctor_formset.management_form }}
+        {% for f in doctor_formset %}
+            <div class="row g-2 mb-2 align-items-center form-row">
+                <div class="col-md-6">{{ f.doctor }}</div>
+                <div class="col-md-4">
+                    {{ f.charge }}
+                </div>
+                <div class="col-md-2">
+                    {% if f.DELETE %}{{ f.DELETE }}{% endif %}
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+    <div class="card p-3 mb-3">
+        <h5 class="fw-bold mb-2">Nurse Charges</h5>
+        {{ nurse_formset.management_form }}
+        {% for f in nurse_formset %}
+            <div class="row g-2 mb-2 align-items-center form-row">
+                <div class="col-md-6">{{ f.description }}</div>
+                <div class="col-md-4">
+                    {{ f.charge }}
+                </div>
+                <div class="col-md-2">
+                    {% if f.DELETE %}{{ f.DELETE }}{% endif %}
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+    <div class="card p-3 mb-3">
+        <h5 class="fw-bold mb-2">Medicine Charges</h5>
+        {{ medicine_formset.management_form }}
+        {% for f in medicine_formset %}
+            <div class="row g-2 mb-2 align-items-center form-row">
+                <div class="col-md-6">
+                    {{ f.medicine }}
+                </div>
+                <div class="col-md-4">
+                    {{ f.quantity }}
+                </div>
+                <div class="col-md-2">
+                    {% if f.DELETE %}{{ f.DELETE }}{% endif %}
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+    <div class="card p-3 mb-3">
+        <h5 class="fw-bold mb-2">Extra Charges</h5>
+        {{ custom_formset.management_form }}
+        {% for f in custom_formset %}
+            <div class="row g-2 mb-2 align-items-center form-row">
+                <div class="col-md-6">{{ f.description }}</div>
+                <div class="col-md-4">
+                    {{ f.charge }}
+                </div>
+                <div class="col-md-2">
+                    {% if f.DELETE %}{{ f.DELETE }}{% endif %}
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-success">Create Invoice</button>
+        <a class="btn btn-outline-secondary" href="{% url 'patient_detail' adm.patient.patient_id %}">
+            Cancel
+        </a>
+    </div>
+</form>
+
+<script>
+function sumValues(selector) {
+    let total = 0;
+
+    document.querySelectorAll(selector).forEach(el => {
+        let row = el.closest(".form-row");
+        let deleteBox = row ? row.querySelector('input[type="checkbox"][name$="-DELETE"]') : null;
+
+        if (deleteBox && deleteBox.checked) return;
+
+        let val = parseFloat(el.value);
+        if (!isNaN(val)) {
+            total += val;
+        }
+    });
+
+    return total;
+}
+
+function calculateMedicineTotal() {
+    let medicine = 0;
+
+    document.querySelectorAll(".medicine-qty").forEach(el => {
+        let row = el.closest(".form-row");
+        let deleteBox = row ? row.querySelector('input[type="checkbox"][name$="-DELETE"]') : null;
+
+        if (deleteBox && deleteBox.checked) return;
+
+        let qty = parseFloat(el.value || 0);
+        let price = parseFloat(el.dataset.price || 0);
+
+        if (!isNaN(qty) && !isNaN(price)) {
+            medicine += qty * price;
+        }
+    });
+
+    return medicine;
+}
+
+function calculateBill() {
+    let ward = parseFloat(document.getElementById("wardCharge").innerText) || 0;
+    let icu = parseFloat(document.getElementById("icuCharge").innerText) || 0;
+    let vent = parseFloat(document.getElementById("ventCharge").innerText) || 0;
+
+    const applyWard = document.getElementById("{{ base_form.apply_ward_charge.id_for_label }}");
+    const applyICU = document.getElementById("{{ base_form.apply_icu_charge.id_for_label }}");
+    const applyVent = document.getElementById("{{ base_form.apply_ventilator_charge.id_for_label }}");
+
+    if (applyWard && !applyWard.checked) ward = 0;
+    if (applyICU && !applyICU.checked) icu = 0;
+    if (applyVent && !applyVent.checked) vent = 0;
+
+    let doctor = sumValues(".doctor-charge");
+    let nurse = sumValues(".nurse-charge");
+    let extra = sumValues(".extra-charge");
+    let medicine = calculateMedicineTotal();
+
+    document.getElementById("doctorTotal").innerText = doctor.toFixed(2);
+    document.getElementById("nurseTotal").innerText = nurse.toFixed(2);
+    document.getElementById("extraTotal").innerText = extra.toFixed(2);
+    document.getElementById("medicineTotal").innerText = medicine.toFixed(2);
+
+    let total = ward + icu + vent + doctor + nurse + medicine + extra;
+    document.getElementById("finalTotal").innerText = total.toFixed(2);
+}
+
+document.addEventListener("input", calculateBill);
+document.addEventListener("change", calculateBill);
+document.addEventListener("DOMContentLoaded", calculateBill);
+</script>
+
+{% endblock %}

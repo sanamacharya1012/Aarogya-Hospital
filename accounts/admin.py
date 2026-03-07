@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
-from .models import Bed, Department, Patient, Admission, Ward, Specialization, LabTestType, LabOrder, LabOrderItem, WardTariff
+from .models import Bed, Department, Patient, Admission, Ward, Specialization, LabTestType, LabOrder, LabOrderItem, WardTariff, DoctorVisit, NursingCharge, Medicine, MedicineUsage
 
 User = get_user_model()
 # Register your models here.
@@ -16,6 +16,10 @@ admin.site.register(Admission)
 admin.site.register(Ward)
 admin.site.register(Bed)
 admin.site.register(Specialization)
+admin.site.register(DoctorVisit)
+admin.site.register(NursingCharge)
+admin.site.register(Medicine)
+admin.site.register(MedicineUsage)
 
 @admin.register(LabTestType)
 class LabTestTypeAdmin(admin.ModelAdmin):

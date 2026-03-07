@@ -56,6 +56,13 @@
             🧾 <span>Invoice Details</span>
       </a>
     {% endif %}
+    {% if user.role == "ADMIN" %}
+        <div class="hms-menu-title mt-3">Analysis</div>
+        <a class="hms-link {% if '/admin-analysis/' in request.path %}active{% endif %}"
+              href="{% url 'admin_analysis' %}">
+              📊 <span>Analysis</span>
+        </a>
+    {% endif %}
 
     <a class="hms-link" href="{% url 'logout' %}">
       🚪 <span>Logout</span>

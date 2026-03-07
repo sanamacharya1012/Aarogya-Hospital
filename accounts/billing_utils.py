@@ -2,20 +2,23 @@ from django.utils import timezone
 from decimal import Decimal
 from datetime import timedelta
 
-def calculate_ipd_bill(admission):
+def calc_ipd_days(admission):
+    today = timezone.now().date()
+    start = admission.admitted_at.date()
 
-    today = timezone.now()
+    stay_days = (today - start).days + 1
+    stay_days = max(stay_days, 1)
 
-    stay_days = (today.date() - admission.admitted_at.date()).days + 1
+    ward_cost = (admission.ward.cost_per_day or Decimal("0")) * stay_days if admission.ward else Decimal("0")
+    icu_cost = Decimal("0")
+    ventilator_cost = Decimal("0")
 
-    ward_cost = admission.ward.cost_per_day * stay_days
+    if admission.ward:
+        if getattr(admission, "is_icu", False):
+            icu_cost = (admission.ward.icu_extra or Decimal("0")) * stay_days
 
-    icu_cost = admission.ward.icu_extra * stay_days
-
-    ventilator_cost = 0
-
-    if admission.on_ventilator:
-        ventilator_cost = admission.ward.ventilator_cost * stay_days
+        if getattr(admission, "on_ventilator", False):
+            ventilator_cost = (admission.ward.ventilator_cost or Decimal("0")) * stay_days
 
     total = ward_cost + icu_cost + ventilator_cost
 
@@ -24,7 +27,7 @@ def calculate_ipd_bill(admission):
         "ward_cost": ward_cost,
         "icu_cost": icu_cost,
         "ventilator_cost": ventilator_cost,
-        "total": total
+        "total": total,
     }
 
 def opd_appointment_fee():

@@ -3,9 +3,10 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import get_user_model
 from .models import (
     Patient, Admission, Bed, Appointment, EMR, Vitals, PrescriptionItem, Specialization,
-    LabOrder, LabOrderItem, LabTestType, BillingPayment, BillingInvoice
+    LabOrder, LabOrderItem, LabTestType, BillingPayment, BillingInvoice, Medicine, User
 )
-from django.forms import inlineformset_factory
+from django.forms import inlineformset_factory, formset_factory
+
 
 
 User = get_user_model()
@@ -232,3 +233,38 @@ class InvoiceAdjustmentForm(forms.ModelForm):
     class Meta:
         model = BillingInvoice
         fields = ["discount", "tax"]
+
+class IPDBillingBaseForm(forms.Form):
+    apply_ward_charge = forms.BooleanField(required=False, initial=True)
+    apply_icu_charge = forms.BooleanField(required=False)
+    apply_ventilator_charge = forms.BooleanField(required=False)
+
+class DoctorChargeForm(forms.Form):
+    doctor = forms.ModelChoiceField(
+        queryset=User.objects.filter(role="DOCTOR", is_active=True),
+        required=False
+    )
+    charge = forms.DecimalField(required=False, min_value=0)
+
+DoctorChargeFormSet = formset_factory(DoctorChargeForm, extra=1, can_delete=True)
+
+class NurseChargeForm(forms.Form):
+    description = forms.CharField(required=False)
+    charge = forms.DecimalField(required=False, min_value=0)
+
+NurseChargeFormSet = formset_factory(NurseChargeForm, extra=1, can_delete=True)
+
+class MedicineChargeForm(forms.Form):
+    medicine = forms.ModelChoiceField(
+        queryset=Medicine.objects.all(),
+        required=False
+    )
+    quantity = forms.IntegerField(required=False, min_value=1)
+
+MedicineChargeFormSet = formset_factory(MedicineChargeForm, extra=1, can_delete=True)
+
+class CustomChargeForm(forms.Form):
+    description = forms.CharField(required=False)
+    charge = forms.DecimalField(required=False, min_value=0)
+
+CustomChargeFormSet = formset_factory(CustomChargeForm, extra=1, can_delete=True)

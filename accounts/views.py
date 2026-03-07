@@ -5,24 +5,26 @@ from django.views.decorators.http import require_POST
 from django.shortcuts import redirect, render, get_object_or_404
 from django.utils import timezone 
 from .utils import is_abnormal_value
-from .billing_utils import calculate_ipd_bill, opd_appointment_fee
-from datetime import date
+from .billing_utils import calc_ipd_days, opd_appointment_fee
+from datetime import date, timedelta
 from decimal import Decimal
+
 
 from .decorators import roles_required
 from .forms import (
     CreateUserForm, LoginForm, PatientForm, AdmissionForm, AppointmentForm,
     EMRForm, VitalsForm, PrescriptionFormSet, AssignDoctorForm, Specialization, UserUpdateForm, 
-    LabOrderForm, LabOrderItemFormSet, LabResultFormSet, LabTestTypeForm, PaymentForm, InvoiceAdjustmentForm
+    LabOrderForm, LabOrderItemFormSet, LabResultFormSet, LabTestTypeForm, PaymentForm, InvoiceAdjustmentForm, IPDBillingBaseForm,
+    DoctorChargeFormSet, NurseChargeFormSet, MedicineChargeFormSet, CustomChargeFormSet
 )
 
 from .models import  (
     Patient, Admission, Bed, Appointment, EMR, Department, LabOrder, LabTestType, BillingInvoice, BillingInvoiceItem, BillingPayment, 
-    WardTariff
+    WardTariff, LabOrderItem, DoctorVisit, NursingCharge, MedicineUsage
 )
 from django.db import transaction
 from django.db.models import Q
-from django.db.models import Count
+from django.db.models import Count, Sum
 from django.core.paginator import Paginator
 from django.http import JsonResponse
 from django.http import HttpResponse
@@ -1242,47 +1244,168 @@ def invoice_create_for_lab_view(request, lab_order_id):
     return redirect("invoice_detail", invoice_id=inv.id)
 
 @login_required
-@roles_required("ADMIN", "CASHIER")
+@roles_required("ADMIN", "RECEPTION", "CASHIER")
 def invoice_create_for_admission_view(request, admission_id):
-
-    admission = get_object_or_404(Admission, id=admission_id)
-
-    data = calculate_ipd_bill(admission)
-
-    inv = BillingInvoice.objects.create(
-        patient=admission.patient,
-        admission=admission,
-        patient_type=BillingInvoice.PatientType.IPD,
-        created_by=request.user
+    adm = get_object_or_404(
+        Admission.objects.select_related("patient", "ward", "bed"),
+        id=admission_id
     )
 
-    BillingInvoiceItem.objects.create(
-        invoice=inv,
-        description=f"Ward Stay ({data['days']} days)",
-        qty=data["days"],
-        unit_price=admission.ward.cost_per_day
-    )
+    existing = BillingInvoice.objects.filter(admission=adm).first()
+    if existing:
+        messages.info(request, "IPD invoice already exists.")
+        return redirect("invoice_detail", invoice_id=existing.id)
 
-    if data["icu_cost"] > 0:
-        BillingInvoiceItem.objects.create(
-            invoice=inv,
-            description="ICU Charge",
-            qty=data["days"],
-            unit_price=admission.ward.icu_extra
-        )
+    billing = calc_ipd_days(adm)
+    days = billing["days"]
 
-    if data["ventilator_cost"] > 0:
-        BillingInvoiceItem.objects.create(
-            invoice=inv,
-            description="Ventilator Charge",
-            qty=data["days"],
-            unit_price=admission.ward.ventilator_cost
-        )
+    base_form = IPDBillingBaseForm(request.POST or None, initial={
+        "apply_ward_charge": True,
+        "apply_icu_charge": getattr(adm, "is_icu", False),
+        "apply_ventilator_charge": getattr(adm, "on_ventilator", False),
+    })
 
-    messages.success(request, "IPD bill generated successfully")
+    doctor_formset = DoctorChargeFormSet(request.POST or None, prefix="doctor")
+    nurse_formset = NurseChargeFormSet(request.POST or None, prefix="nurse")
+    medicine_formset = MedicineChargeFormSet(request.POST or None, prefix="medicine")
+    custom_formset = CustomChargeFormSet(request.POST or None, prefix="custom")
 
-    return redirect("invoice_detail", invoice_id=inv.id)
+    if request.method == "POST":
+        if (
+            base_form.is_valid()
+            and doctor_formset.is_valid()
+            and nurse_formset.is_valid()
+            and medicine_formset.is_valid()
+            and custom_formset.is_valid()
+        ):
+            with transaction.atomic():
+                inv = BillingInvoice.objects.create(
+                    patient=adm.patient,
+                    patient_type=BillingInvoice.PatientType.IPD,
+                    admission=adm,
+                    created_by=request.user,
+                )
 
+                # Base charges from preview helper
+                if base_form.cleaned_data.get("apply_ward_charge") and billing["ward_cost"] > 0:
+                    BillingInvoiceItem.objects.create(
+                        invoice=inv,
+                        description=f"Ward Bed Charge ({adm.ward})",
+                        qty=Decimal(str(days)),
+                        unit_price=adm.ward.cost_per_day or Decimal("0"),
+                        ward=adm.ward,
+                        bed=adm.bed,
+                    )
+
+                if base_form.cleaned_data.get("apply_icu_charge") and billing["icu_cost"] > 0:
+                    BillingInvoiceItem.objects.create(
+                        invoice=inv,
+                        description="ICU Extra Charge",
+                        qty=Decimal(str(days)),
+                        unit_price=adm.ward.icu_extra or Decimal("0"),
+                        ward=adm.ward,
+                        bed=adm.bed,
+                    )
+
+                if base_form.cleaned_data.get("apply_ventilator_charge") and billing["ventilator_cost"] > 0:
+                    BillingInvoiceItem.objects.create(
+                        invoice=inv,
+                        description="Ventilator Charge",
+                        qty=Decimal(str(days)),
+                        unit_price=adm.ward.ventilator_cost or Decimal("0"),
+                        ward=adm.ward,
+                        bed=adm.bed,
+                    )
+
+                # Lab charges
+                lab_orders = LabOrder.objects.filter(
+                    patient=adm.patient,
+                    status=LabOrder.Status.COMPLETED
+                )
+
+                for order in lab_orders:
+                    for item in order.items.select_related("test_type").all():
+                        BillingInvoiceItem.objects.create(
+                            invoice=inv,
+                            description=f"Lab Test: {item.test_type.name}",
+                            qty=Decimal("1"),
+                            unit_price=item.test_type.price or Decimal("0"),
+                            lab_test_type=item.test_type,
+                        )
+
+                # Doctor charges from front
+                for form in doctor_formset:
+                    if not form.cleaned_data or form.cleaned_data.get("DELETE"):
+                        continue
+                    doctor = form.cleaned_data.get("doctor")
+                    charge = form.cleaned_data.get("charge")
+                    if doctor and charge:
+                        BillingInvoiceItem.objects.create(
+                            invoice=inv,
+                            description=f"Doctor Visit ({doctor.full_name})",
+                            qty=Decimal("1"),
+                            unit_price=charge,
+                        )
+
+                # Nurse charges from front
+                for form in nurse_formset:
+                    if not form.cleaned_data or form.cleaned_data.get("DELETE"):
+                        continue
+                    description = form.cleaned_data.get("description")
+                    charge = form.cleaned_data.get("charge")
+                    if description and charge:
+                        BillingInvoiceItem.objects.create(
+                            invoice=inv,
+                            description=description,
+                            qty=Decimal("1"),
+                            unit_price=charge,
+                        )
+
+                # Medicine charges from front
+                for form in medicine_formset:
+                    if not form.cleaned_data or form.cleaned_data.get("DELETE"):
+                        continue
+                    medicine = form.cleaned_data.get("medicine")
+                    quantity = form.cleaned_data.get("quantity")
+                    if medicine and quantity:
+                        BillingInvoiceItem.objects.create(
+                            invoice=inv,
+                            description=f"Medicine: {medicine.name}",
+                            qty=Decimal(str(quantity)),
+                            unit_price=medicine.price or Decimal("0"),
+                        )
+
+                # Custom charges from front
+                for form in custom_formset:
+                    if not form.cleaned_data or form.cleaned_data.get("DELETE"):
+                        continue
+                    description = form.cleaned_data.get("description")
+                    charge = form.cleaned_data.get("charge")
+                    if description and charge:
+                        BillingInvoiceItem.objects.create(
+                            invoice=inv,
+                            description=description,
+                            qty=Decimal("1"),
+                            unit_price=charge,
+                        )
+
+                _update_invoice_status(inv)
+
+            messages.success(request, "IPD invoice created successfully.")
+            return redirect("invoice_detail", invoice_id=inv.id)
+
+        messages.error(request, "Please fix the errors below.")
+
+    return render(request, "accounts/ipd_invoice_create.html", {
+        "adm": adm,
+        "days": days,
+        "billing": billing,
+        "base_form": base_form,
+        "doctor_formset": doctor_formset,
+        "nurse_formset": nurse_formset,
+        "medicine_formset": medicine_formset,
+        "custom_formset": custom_formset,
+    })
         
 @login_required
 @roles_required("ADMIN", "CASHIER", "ACCOUNTANT")
@@ -1384,6 +1507,263 @@ def invoice_pdf_view(request, invoice_id):
     p.setFont("Helvetica-Oblique", 9)
     p.drawCentredString(width / 2, 1.5 * cm, "Thank you for choosing Aarogya Hospital")
     p.drawCentredString(width / 2, 1.1 * cm, "This is a computer generated invoice.")
+
+    p.showPage()
+    p.save()
+    return response
+
+@login_required
+@roles_required("ADMIN")
+def admin_analysis_view(request):
+    today = timezone.localdate()
+    last_7_days = [today - timedelta(days=i) for i in range(6, -1, -1)]
+
+    # Core counts
+    total_patients = Patient.objects.count()
+    new_patients_today = Patient.objects.filter(created_at__date=today).count()
+
+    admitted_count = Admission.objects.filter(status=Admission.Status.ADMITTED).count()
+    discharged_count = Admission.objects.filter(status=Admission.Status.DISCHARGED).count()
+
+    total_doctors = User.objects.filter(role="DOCTOR", is_active=True).count()
+    total_nurses = User.objects.filter(role="NURSE", is_active=True).count()
+    total_cashiers = User.objects.filter(role="CASHIER", is_active=True).count()
+    total_accountants = User.objects.filter(role="ACCOUNTANT", is_active=True).count()
+
+    available_beds = Bed.objects.filter(status=Bed.Status.AVAILABLE).count()
+    occupied_beds = Bed.objects.filter(status=Bed.Status.OCCUPIED).count()
+    maintenance_beds = Bed.objects.filter(status=Bed.Status.MAINTENANCE).count()
+
+    total_beds = available_beds + occupied_beds + maintenance_beds
+    bed_occupancy_percentage = round((occupied_beds / total_beds) * 100, 2) if total_beds else 0
+
+    # Appointments
+    appointments_today = Appointment.objects.filter(appointment_date=today).count()
+    scheduled_appointments = Appointment.objects.filter(status=Appointment.Status.SCHEDULED).count()
+    completed_appointments = Appointment.objects.filter(status=Appointment.Status.COMPLETED).count()
+    cancelled_appointments = Appointment.objects.filter(status=Appointment.Status.CANCELLED).count()
+
+    # Lab summary
+    lab_total = LabOrder.objects.count()
+    lab_requested = LabOrder.objects.filter(status=LabOrder.Status.REQUESTED).count()
+    lab_in_progress = LabOrder.objects.filter(status=LabOrder.Status.IN_PROGRESS).count()
+    lab_completed = LabOrder.objects.filter(status=LabOrder.Status.COMPLETED).count()
+    lab_cancelled = LabOrder.objects.filter(status=LabOrder.Status.CANCELLED).count()
+
+    # Billing summary
+    total_invoices = BillingInvoice.objects.count()
+    paid_invoices = BillingInvoice.objects.filter(status=BillingInvoice.Status.PAID).count()
+    partial_invoices = BillingInvoice.objects.filter(status=BillingInvoice.Status.PARTIAL).count()
+    draft_invoices = BillingInvoice.objects.filter(status=BillingInvoice.Status.DRAFT).count()
+
+    total_revenue = BillingPayment.objects.aggregate(total=Sum("amount"))["total"] or Decimal("0")
+    revenue_today = BillingPayment.objects.filter(received_at__date=today).aggregate(total=Sum("amount"))["total"] or Decimal("0")
+    total_due = sum((inv.due_amount for inv in BillingInvoice.objects.all()), Decimal("0"))
+
+    cash_total = BillingPayment.objects.filter(method=BillingPayment.Method.CASH).aggregate(total=Sum("amount"))["total"] or Decimal("0")
+    card_total = BillingPayment.objects.filter(method=BillingPayment.Method.CARD).aggregate(total=Sum("amount"))["total"] or Decimal("0")
+    esewa_total = BillingPayment.objects.filter(method=BillingPayment.Method.ESEWA).aggregate(total=Sum("amount"))["total"] or Decimal("0")
+    khalti_total = BillingPayment.objects.filter(method=BillingPayment.Method.KHALTI).aggregate(total=Sum("amount"))["total"] or Decimal("0")
+    bank_total = BillingPayment.objects.filter(method=BillingPayment.Method.BANK).aggregate(total=Sum("amount"))["total"] or Decimal("0")
+
+    recent_invoices = BillingInvoice.objects.select_related("patient").order_by("-created_at")[:8]
+
+    # Last 7 days charts
+    patient_chart_labels = []
+    patient_chart_values = []
+
+    revenue_chart_labels = []
+    revenue_chart_values = []
+
+    for d in last_7_days:
+        patient_chart_labels.append(d.strftime("%d %b"))
+        patient_chart_values.append(Patient.objects.filter(created_at__date=d).count())
+
+        day_revenue = BillingPayment.objects.filter(received_at__date=d).aggregate(total=Sum("amount"))["total"] or Decimal("0")
+        revenue_chart_labels.append(d.strftime("%d %b"))
+        revenue_chart_values.append(float(day_revenue))
+
+    # Doctors by specialization
+    doctor_by_specialization = (
+        User.objects
+        .filter(role="DOCTOR", is_active=True)
+        .values("specialization__name")
+        .annotate(total=Count("id"))
+        .order_by("specialization__name")
+    )
+
+    # NEW: monthly revenue chart (last 6 months)
+    monthly_labels = []
+    monthly_values = []
+
+    for i in range(5, -1, -1):
+        ref_date = today.replace(day=1)
+        month = ref_date.month - i
+        year = ref_date.year
+
+        while month <= 0:
+            month += 12
+            year -= 1
+
+        label = f"{year}-{month:02d}"
+        monthly_labels.append(label)
+
+        month_total = BillingPayment.objects.filter(
+            received_at__year=year,
+            received_at__month=month
+        ).aggregate(total=Sum("amount"))["total"] or Decimal("0")
+
+        monthly_values.append(float(month_total))
+
+    # NEW: OPD vs IPD invoice counts
+    opd_invoice_count = BillingInvoice.objects.filter(patient_type=BillingInvoice.PatientType.OPD).count()
+    ipd_invoice_count = BillingInvoice.objects.filter(patient_type=BillingInvoice.PatientType.IPD).count()
+
+    # NEW: top 5 doctors by appointments
+    top_doctors = (
+        Appointment.objects
+        .values("doctor__full_name")
+        .annotate(total=Count("id"))
+        .order_by("-total")[:5]
+    )
+
+    # NEW: most used lab tests
+    top_lab_tests = (
+        LabOrderItem.objects
+        .values("test_type__name")
+        .annotate(total=Count("id"))
+        .order_by("-total")[:5]
+    )
+
+    context = {
+        "today": today,
+
+        "total_patients": total_patients,
+        "new_patients_today": new_patients_today,
+        "admitted_count": admitted_count,
+        "discharged_count": discharged_count,
+
+        "total_doctors": total_doctors,
+        "total_nurses": total_nurses,
+        "total_cashiers": total_cashiers,
+        "total_accountants": total_accountants,
+
+        "available_beds": available_beds,
+        "occupied_beds": occupied_beds,
+        "maintenance_beds": maintenance_beds,
+        "bed_occupancy_percentage": bed_occupancy_percentage,
+
+        "appointments_today": appointments_today,
+        "scheduled_appointments": scheduled_appointments,
+        "completed_appointments": completed_appointments,
+        "cancelled_appointments": cancelled_appointments,
+
+        "lab_total": lab_total,
+        "lab_requested": lab_requested,
+        "lab_in_progress": lab_in_progress,
+        "lab_completed": lab_completed,
+        "lab_cancelled": lab_cancelled,
+
+        "total_invoices": total_invoices,
+        "paid_invoices": paid_invoices,
+        "partial_invoices": partial_invoices,
+        "draft_invoices": draft_invoices,
+        "total_revenue": total_revenue,
+        "revenue_today": revenue_today,
+        "total_due": total_due,
+
+        "cash_total": cash_total,
+        "card_total": card_total,
+        "esewa_total": esewa_total,
+        "khalti_total": khalti_total,
+        "bank_total": bank_total,
+
+        "recent_invoices": recent_invoices,
+        "doctor_by_specialization": doctor_by_specialization,
+
+        "patient_chart_labels": patient_chart_labels,
+        "patient_chart_values": patient_chart_values,
+        "revenue_chart_labels": revenue_chart_labels,
+        "revenue_chart_values": revenue_chart_values,
+
+        "monthly_labels": monthly_labels,
+        "monthly_values": monthly_values,
+
+        "opd_invoice_count": opd_invoice_count,
+        "ipd_invoice_count": ipd_invoice_count,
+
+        "top_doctors": top_doctors,
+        "top_lab_tests": top_lab_tests,
+    }
+
+    return render(request, "accounts/admin_analysis.html", context)
+
+@login_required
+@roles_required("ADMIN")
+def admin_analysis_pdf_view(request):
+    today = timezone.localdate()
+
+    total_patients = Patient.objects.count()
+    admitted_count = Admission.objects.filter(status=Admission.Status.ADMITTED).count()
+    discharged_count = Admission.objects.filter(status=Admission.Status.DISCHARGED).count()
+
+    total_revenue = BillingPayment.objects.aggregate(total=Sum("amount"))["total"] or Decimal("0")
+    revenue_today = BillingPayment.objects.filter(received_at__date=today).aggregate(total=Sum("amount"))["total"] or Decimal("0")
+    total_due = sum((inv.due_amount for inv in BillingInvoice.objects.all()), Decimal("0"))
+
+    appointments_today = Appointment.objects.filter(appointment_date=today).count()
+    lab_total = LabOrder.objects.count()
+    paid_invoices = BillingInvoice.objects.filter(status=BillingInvoice.Status.PAID).count()
+
+    available_beds = Bed.objects.filter(status=Bed.Status.AVAILABLE).count()
+    occupied_beds = Bed.objects.filter(status=Bed.Status.OCCUPIED).count()
+    maintenance_beds = Bed.objects.filter(status=Bed.Status.MAINTENANCE).count()
+
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = f'inline; filename="admin_analysis_{today}.pdf"'
+
+    p = canvas.Canvas(response, pagesize=A4)
+    width, height = A4
+    y = height - 2 * cm
+
+    p.setFont("Helvetica-Bold", 16)
+    p.drawString(2 * cm, y, "HMS Admin Analysis Report")
+    y -= 0.8 * cm
+
+    p.setFont("Helvetica", 10)
+    p.drawString(2 * cm, y, f"Date: {today}")
+    y -= 1.0 * cm
+
+    rows = [
+        ("Total Patients", str(total_patients)),
+        ("Admitted Patients", str(admitted_count)),
+        ("Discharged Patients", str(discharged_count)),
+        ("Appointments Today", str(appointments_today)),
+        ("Lab Orders", str(lab_total)),
+        ("Paid Invoices", str(paid_invoices)),
+        ("Revenue Today", str(revenue_today)),
+        ("Total Revenue", str(total_revenue)),
+        ("Total Due", str(total_due)),
+        ("Available Beds", str(available_beds)),
+        ("Occupied Beds", str(occupied_beds)),
+        ("Maintenance Beds", str(maintenance_beds)),
+    ]
+
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(2 * cm, y, "Metric")
+    p.drawString(12 * cm, y, "Value")
+    y -= 0.3 * cm
+    p.line(2 * cm, y, width - 2 * cm, y)
+    y -= 0.6 * cm
+
+    p.setFont("Helvetica", 10)
+    for label, value in rows:
+        if y < 2 * cm:
+            p.showPage()
+            y = height - 2 * cm
+        p.drawString(2 * cm, y, label)
+        p.drawString(12 * cm, y, value)
+        y -= 0.6 * cm
 
     p.showPage()
     p.save()

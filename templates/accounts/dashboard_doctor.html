@@ -528,14 +528,14 @@
 
             {% if order.status == "REQUESTED" %}
               <a class="btn btn-sm btn-outline-primary"
-                 href="{% url 'lab_order_start' order.id %}">
+                 href="{% url 'lab_order_create' order.id %}">
                  Start
               </a>
             {% endif %}
 
             {% if order.status == "IN_PROGRESS" %}
               <a class="btn btn-sm btn-outline-success"
-                 href="{% url 'lab_order_result' order.id %}">
+                 href="{% url 'lab_result_entry' order.id %}">
                  Add Result
               </a>
             {% endif %}

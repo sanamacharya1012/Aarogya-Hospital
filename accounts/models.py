@@ -101,6 +101,10 @@ class Patient(models.Model):
 class Ward(models.Model):
     name = models.CharField(max_length=120, unique=True)
 
+    cost_per_day = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    icu_extra = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    ventilator_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
     def __str__(self):
         return self.name
 
@@ -265,12 +269,32 @@ class LabOrder(models.Model):
         return f"LabOrder #{ self.id}- { self.patient.patient_id}"
 
 class LabOrderItem(models.Model):
-    order = models.ForeignKey(LabOrder, on_delete=models.CASCADE, related_name="items")
-    test_type = models.ForeignKey(LabTestType, on_delete=models.PROTECT, related_name="order_items")
 
-    result_value = models.CharField(max_length=120, blank=True, default="")
-    result_note = models.CharField(max_length=200, blank=True, default="")
-    is_abnormal = models.BooleanField(default=False)
+    order = models.ForeignKey(
+        LabOrder,
+        on_delete=models.CASCADE,
+        related_name="items"
+    )
+
+    test_type = models.ForeignKey(
+        LabTestType,
+        on_delete=models.CASCADE
+    )
+
+    result_value = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True
+    )
+
+    result_note = models.TextField(
+        blank=True,
+        null=True
+    )
+
+    is_abnormal = models.BooleanField(
+        default=False
+    )
 
     def __str__(self):
         return f"{ self.order_id } - { self.test_type.name}"

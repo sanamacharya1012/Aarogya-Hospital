@@ -5,7 +5,7 @@ from django.views.decorators.http import require_POST
 from django.shortcuts import redirect, render, get_object_or_404
 from django.utils import timezone 
 from .utils import is_abnormal_value
-from .billing_utils import calc_ipd_days, opd_appointment_fee
+from .billing_utils import calculate_ipd_bill, opd_appointment_fee
 from datetime import date
 from decimal import Decimal
 
@@ -916,25 +916,45 @@ def lab_order_status_view(request, order_id, status):
 @login_required
 @roles_required("ADMIN", "RECEPTION", "LAB")
 def lab_result_entry_view(request, order_id):
-    order = get_object_or_404(LabOrder.objects.select_related("patient"), id=order_id)
+    order = get_object_or_404(
+        LabOrder.objects.select_related("patient").prefetch_related("items__test_type"),
+        id=order_id
+    )
 
-    formset = LabResultFormSet(request.POST or None, instance=order, prefix="res")
+    formset = LabResultFormSet(
+        request.POST or None,
+        instance=order,
+        prefix="res"
+    )
 
     if request.method == "POST":
         if formset.is_valid():
             formset.save()
 
-            # auto set abnormal based on normal range
-            for it in order.items.select_related("test_type").all():
-                it.is_abnormal = is_abnormal_value(it.result_value, it.test_type.normal_range)
-                it.save(update_fields=["is_abnormal"])
+            # auto abnormal flag
+            for item in order.items.select_related("test_type").all():
+                abnormal = is_abnormal_value(
+                    item.result_value,
+                    item.test_type.normal_range
+                )
+                item.is_abnormal - bool(abnormal)
+                item.save(update_fields=["is_abnormal"])
 
             order.status = LabOrder.Status.COMPLETED
             order.save(update_fields=["status"])
-            messages.success(request, "Results saved and order marked completed.")
+
+            messages.success(request, "Lab results saved successfully.")
             return redirect("lab_order_detail", order_id=order.id)
-        messages.error(request,"Please fix the errors below.")
-    return render(request, "accounts/lab_result_entry.html", {"order": order, "formset": formset})
+
+        messages.error(request, "Please fix the errors below.")
+        print("LAB RESULT FORMSET ERRORS:", formset.errors)
+        print("LAB RESULT NON_FORM_ERRORS:", formset.non_form_errors())
+
+    return render(
+        request,
+        "accounts/lab_result_entry.html",
+        {"order": order, "formset": formset}
+    )
 
 @login_required
 @roles_required("ADMIN")
@@ -946,7 +966,8 @@ def lab_testtype_list_view(request):
         qs =qs.filter(name__icontains=q)
 
     paginator = Paginator(qs , 15)
-    page_obj = paginator.get_page(request.GET.get("page"))
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
 
     return render(request, "accounts/testtype_list.html", {"page_obj": page_obj, "q": q})
 
@@ -973,7 +994,7 @@ def lab_testtype_edit_view(request, test_id):
             messages.success(request, "Lab test type updated.")
             return redirect("lab_testtype_list")
         messages.error(request, "Please fix the errors below.")
-    return render(request, "account/testtype_form.html", {"form": form, "mode": "edit", "obj": obj })
+    return render(request, "accounts/testtype_form.html", {"form": form, "mode": "edit", "obj": obj })
 
 @login_required
 @roles_required("ADMIN")
@@ -1221,61 +1242,45 @@ def invoice_create_for_lab_view(request, lab_order_id):
     return redirect("invoice_detail", invoice_id=inv.id)
 
 @login_required
-@roles_required("ADMIN", "RECEPTION", "CASHIER")
+@roles_required("ADMIN", "CASHIER")
 def invoice_create_for_admission_view(request, admission_id):
-    adm = get_object_or_404(
-        Admission.objects.select_related("patient", "ward", "bed"),
-        id=admission_id
-    )
 
-    existing = BillingInvoice.objects.filter(admission=adm).first()
-    if existing:
-        return redirect("invoice_detail", invoice_id=existing.id)
-    
+    admission = get_object_or_404(Admission, id=admission_id)
+
+    data = calculate_ipd_bill(admission)
+
     inv = BillingInvoice.objects.create(
-        patient=adm.patient,
+        patient=admission.patient,
+        admission=admission,
         patient_type=BillingInvoice.PatientType.IPD,
-        admission=adm,
         created_by=request.user
     )
 
-    tariff, _ = WardTariff.objects.get_or_create(ward=adm.ward)
-
-    days = calc_ipd_days(adm.admitted_at, adm.discharged_at)
-
-    # 1) Basebed/day charge
     BillingInvoiceItem.objects.create(
         invoice=inv,
-        description=f"Ward Bed Charge ({adm.ward})",
-        qty=Decimal(str(days)),
-        unit_price=tariff.bed_charge_per_day,
-        bed=adm.bed
+        description=f"Ward Stay ({data['days']} days)",
+        qty=data["days"],
+        unit_price=admission.ward.cost_per_day
     )
 
-    # 2) ICU extra/day
-    if adm.is_icu:
+    if data["icu_cost"] > 0:
         BillingInvoiceItem.objects.create(
             invoice=inv,
-            description="ICU EXTRA CHARGE",
-            qty=Decimal(str(days)),
-            unit_price=tariff.icu_extra_per_day,
-            ward=adm.ward,
-            bed=adm.bed
-        )
-    
-    # 3) Ventilator extra/day
-    if adm.on_ventilator:
-        BillingInvoiceItem.objects.create(
-            invoice=inv,
-            description="Ventoilator Charge",
-            qty=Decimal(str(days)),
-            unit_price=tariff.ventilator_extra_per_day,
-            ward=adm.ward,
-            bed=adm.bed
+            description="ICU Charge",
+            qty=data["days"],
+            unit_price=admission.ward.icu_extra
         )
 
-    _update_invoice_status(inv)
-    messages.success(request, "IPD invoice created.")
+    if data["ventilator_cost"] > 0:
+        BillingInvoiceItem.objects.create(
+            invoice=inv,
+            description="Ventilator Charge",
+            qty=data["days"],
+            unit_price=admission.ward.ventilator_cost
+        )
+
+    messages.success(request, "IPD bill generated successfully")
+
     return redirect("invoice_detail", invoice_id=inv.id)
 
         
@@ -1284,12 +1289,23 @@ def invoice_create_for_admission_view(request, admission_id):
 def invoice_pdf_view(request, invoice_id):
     inv = get_object_or_404(BillingInvoice.objects.select_related("patient"), id=invoice_id)
 
-    response = HttpResponse(content_type="application/pfd")
-    response["COntent-Dispostion"] = f'inline; filename="{inv.invoice_no}.pdf"'
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = f'inline; filename="{inv.invoice_no}.pdf"'
 
     p= canvas.Canvas(response, pagesize=A4)
     width, height = A4
     y = height -2 * cm
+
+    # Hospital Header
+    p.setFont("Helvetica-Bold", 16)
+    p.drawCentredString(width / 2, y, "AAROGYA HOSPITAL")
+    y -= 0.6 * cm
+
+    p.setFont("Helvetica", 9)
+    p.drawCentredString(width / 2, y, "Kathmandu, Nepal")
+    y -= 0.4 * cm
+    p.drawCentredString(width / 2, y, "Phone: 01-123456")
+    y -= 1.0 * cm
 
     p.setFont("Helvetica-Bold", 14)
     p.drawString(2 * cm , y, "HMS Invoice")
@@ -1300,7 +1316,7 @@ def invoice_pdf_view(request, invoice_id):
     y -= 0.6 * cm
     p.drawString(2 * cm, y, f"Patient: {inv.patient.full_name}  ({inv.patient.patient_id})")
     y -= 0.6 * cm
-    p.drawString(2 * cm, y, f"Date: {inv.created_at.strftime('%Y-%m-%d %H:%i')}")
+    p.drawString(2 * cm, y, f"Date: {inv.created_at.strftime('%Y-%m-%d %H:%M')}")
     y -= 1.0 * cm
 
     #Table Header
@@ -1315,7 +1331,7 @@ def invoice_pdf_view(request, invoice_id):
     y -= 0.6 * cm
 
     p.setFont("Helvetica-Bold", 10)
-    for it in inv.item.all():
+    for it in inv.items.all():
         if y < 2.5 * cm:
             p.showpage()
             y = height - 2 * cm
@@ -1340,29 +1356,34 @@ def invoice_pdf_view(request, invoice_id):
     y -= 0.7 * cm
 
     p.setFont("Helvetica-Bold", 10)
-    p.drawRightString(18.0 * cm, y, "Subtotal:")
-    p.drawRightString(19.0 * cm, y, f"{inv.subtotal}")
+    p.drawRightString(17.0 * cm, y, "Subtotal:")
+    p.drawRightString(19.0 * cm, y, f"Rs.{inv.subtotal: .2f}")
     y -= 0.5 * cm
 
-    p.setFont("Helvetica-Bold", 10)
-    p.drawRightString(18.0 * cm, y, "Tax:")
-    p.drawRightString(19.0 * cm, y, f"{inv.tax}")
+    p.setFont("Helvetica", 10)
+    p.drawRightString(17.0 * cm, y, "Tax:")
+    p.drawRightString(19.0 * cm, y, f"Rs.{inv.tax}")
     y -= 0.5 * cm
-    p.drawRightString(18.0 * cm, y, "Discount:")
-    p.drawRightString(19.0 * cm, y, f"{inv.discount}")
+    p.drawRightString(17.0 * cm, y, "Discount:")
+    p.drawRightString(19.0 * cm, y, f"Rs.{inv.discount}")
     y -= 0.6 * cm
     
     p.setFont("Helvetica-Bold", 10)
-    p.drawRightString(18.0 * cm, y, "Grand Total:")
-    p.drawRightString(19.0 * cm, y, f"{inv.grand_total}")
+    p.drawRightString(17.0 * cm, y, "Grand Total:")
+    p.drawRightString(19.0 * cm, y, f"Rs.{inv.grand_total: .2f}")
     y -= 0.8 * cm
 
     p.setFont("Helvetica-Bold", 10)
-    p.drawRightString(18.0 * cm, y, "Paid:")
-    p.drawRightString(19.0 * cm, y, f"{inv.paid_amount}")
+    p.drawRightString(17.0 * cm, y, "Paid:")
+    p.drawRightString(19.0 * cm, y, f"Rs.{inv.paid_amount: .2f}")
     y -= 0.5 * cm
-    p.drawRightString(18.0 * cm, y, "Due:")
-    p.drawRightString(19.0 * cm, y, f"{inv.due_amount}")
+    p.drawRightString(17.0 * cm, y, "Due:")
+    p.drawRightString(19.0 * cm, y, f"Rs.{inv.due_amount: .2f}")
+
+    # Footer
+    p.setFont("Helvetica-Oblique", 9)
+    p.drawCentredString(width / 2, 1.5 * cm, "Thank you for choosing Aarogya Hospital")
+    p.drawCentredString(width / 2, 1.1 * cm, "This is a computer generated invoice.")
 
     p.showPage()
     p.save()

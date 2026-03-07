@@ -1,14 +1,31 @@
 from django.utils import timezone
 from decimal import Decimal
+from datetime import timedelta
 
-def calc_ipd_days(admitted_at, discharged_at=None):
-    """
-    Mininmum 1 day charge.
-    """
-    start = admitted_at.date()
-    end = discharged_at.date() if discharged_at else timezone.localdate()
-    days = (end-start).days + 1
-    return max(days, 1)
+def calculate_ipd_bill(admission):
+
+    today = timezone.now()
+
+    stay_days = (today.date() - admission.admitted_at.date()).days + 1
+
+    ward_cost = admission.ward.cost_per_day * stay_days
+
+    icu_cost = admission.ward.icu_extra * stay_days
+
+    ventilator_cost = 0
+
+    if admission.on_ventilator:
+        ventilator_cost = admission.ward.ventilator_cost * stay_days
+
+    total = ward_cost + icu_cost + ventilator_cost
+
+    return {
+        "days": stay_days,
+        "ward_cost": ward_cost,
+        "icu_cost": icu_cost,
+        "ventilator_cost": ventilator_cost,
+        "total": total
+    }
 
 def opd_appointment_fee():
     return Decimal("500.00")
